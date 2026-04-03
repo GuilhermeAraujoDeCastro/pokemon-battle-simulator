@@ -1,0 +1,3 @@
+# O jogo em si (main.py) usa só a biblioteca padrão do Python 3.10+.
+# O pytest é necessário só pra rodar a suíte de testes:
+pytest>=7.0
