@@ -3,3 +3,12 @@ __pycache__/
 .pytest_cache/
 venv/
 .venv/
+
+# Cache local do modo gráfico (dados da PokeAPI + sprites baixados) —
+# recriado sozinho na primeira vez que cada Pokémon é usado, não precisa
+# entrar no repositório.
+.pokecache/
+
+# Progresso salvo (Pokédex vista, insígnias) — é de cada jogador, não do
+# projeto.
+savegame.json
