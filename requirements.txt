@@ -1,3 +1,10 @@
-# O jogo em si (main.py) usa só a biblioteca padrão do Python 3.10+.
+# O modo texto (main.py) usa só a biblioteca padrão do Python 3.10+.
 # O pytest é necessário só pra rodar a suíte de testes:
 pytest>=7.0
+
+# O modo gráfico (main_gui.py) precisa dessas duas: requests fala com a
+# PokeAPI, Pillow abre/redimensiona os sprites baixados. Tkinter também é
+# usado, mas já vem com o Python (no Linux, se faltar, instale o pacote
+# "python3-tk" do seu sistema).
+requests>=2.31
+Pillow>=10.0
