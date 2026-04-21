@@ -201,7 +201,9 @@ class Battle:
         """Executa um turno completo a partir da ação do jogador.
 
         player_action é uma tupla ("move", Move), ("switch", indice),
-        ("item", quantidade_de_cura) ou ("flee", None). Trocar de Pokémon ou
+        ("flee", None) ou ("item", payload), onde payload é ou só a
+        quantidade de cura (aplica no ativo) ou (quantidade, índice_no_time)
+        pra curar/reviver alguém no banco (ex: Revive). Trocar de Pokémon ou
         usar um item consome o turno do jogador, mas o oponente ainda ataca
         em seguida — só fugir encerra a batalha na hora.
         """
@@ -221,9 +223,15 @@ class Battle:
             return log
 
         if kind == "item":
-            healed = min(payload, self.player.max_hp - self.player.current_hp)
-            self.player.heal(payload)
-            log.append(f"{self.player.name} recuperou {healed} HP!")
+            heal_amount, target_index = payload if isinstance(payload, tuple) else (payload, None)
+            target = self.player_team[target_index] if target_index is not None else self.player
+            if target.is_fainted:
+                target.current_hp = min(target.max_hp, heal_amount)
+                log.append(f"{target.name} foi revivido com {target.current_hp} HP!")
+            else:
+                healed = min(heal_amount, target.max_hp - target.current_hp)
+                target.heal(heal_amount)
+                log.append(f"{target.name} recuperou {healed} HP!")
             if not self.enemy.is_fainted:
                 log.extend(self._act(self.enemy, self.player, enemy_move))
             log.extend(self._apply_residual_damage())
