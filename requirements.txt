@@ -8,3 +8,11 @@ pytest>=7.0
 # "python3-tk" do seu sistema).
 requests>=2.31
 Pillow>=10.0
+
+# Som no modo gráfico (pokebattle/audio.py). Opcional na prática: sem
+# dispositivo de áudio (ou sem essa lib), o jogo continua funcionando em
+# silêncio — nunca trava nem quebra por falta dela.
+pygame>=2.5
+
+# Só a versão web (web/app.py) precisa disso.
+Flask>=3.0
