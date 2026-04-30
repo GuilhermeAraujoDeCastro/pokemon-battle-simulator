@@ -28,15 +28,16 @@ class Gym:
     badge_name: str
     reward_money: int
     personality: str = "aggressive"  # como a IA do líder escolhe golpe — ver pokebattle/ai.py
+    location_id: str = "open_field"  # arena do ginásio — ver pokebattle/locations.py
 
 
 GYMS: list[Gym] = [
     Gym("pewter", "Pewter City", "Brock", "rock",
         [GymTrainer("geodude", 12), GymTrainer("onix", 14)],
-        "Insígnia Rocha", 1400, personality="defensive"),
+        "Insígnia Rocha", 1400, personality="defensive", location_id="cave"),
     Gym("cerulean", "Cerulean City", "Misty", "water",
         [GymTrainer("staryu", 18), GymTrainer("starmie", 21)],
-        "Insígnia Cascata", 2100, personality="strategic"),
+        "Insígnia Cascata", 2100, personality="strategic", location_id="lake"),
     Gym("vermilion", "Vermilion City", "Lt. Surge", "electric",
         [GymTrainer("voltorb", 21), GymTrainer("pikachu", 18), GymTrainer("raichu", 24)],
         "Insígnia Trovão", 2400, personality="aggressive"),
@@ -51,11 +52,11 @@ GYMS: list[Gym] = [
         "Insígnia Pântano", 4300, personality="strategic"),
     Gym("cinnabar", "Cinnabar Island", "Blaine", "fire",
         [GymTrainer("growlithe", 42), GymTrainer("ponyta", 40), GymTrainer("rapidash", 42), GymTrainer("arcanine", 47)],
-        "Insígnia Vulcão", 4700, personality="aggressive"),
+        "Insígnia Vulcão", 4700, personality="aggressive", location_id="volcano"),
     Gym("viridian", "Viridian City", "Giovanni", "ground",
         [GymTrainer("rhyhorn", 45), GymTrainer("dugtrio", 42), GymTrainer("nidoqueen", 44),
          GymTrainer("nidoking", 45), GymTrainer("rhydon", 50)],
-        "Insígnia Terra", 5000, personality="aggressive"),
+        "Insígnia Terra", 5000, personality="aggressive", location_id="cave"),
 ]
 
 _GYMS_BY_ID = {gym.id: gym for gym in GYMS}

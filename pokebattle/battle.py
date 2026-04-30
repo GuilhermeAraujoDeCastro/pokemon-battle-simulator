@@ -13,9 +13,10 @@ import random
 from dataclasses import dataclass
 from typing import Optional
 
-from . import abilities
+from . import abilities, held_items
 from .status import (
     CONFUSION,
+    POISON,
     apply_status,
     check_can_act,
     residual_damage,
@@ -55,13 +56,17 @@ def _base_power(level: float, power: int, atk_stat: int, def_stat: int) -> float
 
 
 def calculate_damage(attacker, defender, move, rng=random, weather=None) -> DamageResult:
-    hit = rng.uniform(0, 100) <= move.accuracy
+    accuracy = move.accuracy * abilities.accuracy_multiplier(defender, weather)
+    hit = rng.uniform(0, 100) <= accuracy
     if not hit:
         return DamageResult(damage=0, hit=False, effectiveness=1.0, is_crit=False)
 
     type_eff = 0.0 if abilities.grants_type_immunity(defender, move.type) else effectiveness(move.type, defender.types)
     if type_eff == 0.0:
         return DamageResult(damage=0, hit=True, effectiveness=0.0, is_crit=False)
+
+    if abilities.blocks_non_supereffective(defender, type_eff, move.category):
+        return DamageResult(damage=0, hit=True, effectiveness=type_eff, is_crit=False)
 
     if move.category == "physical":
         atk_stat, def_stat = attacker.effective_attack, defender.effective_defense
@@ -81,13 +86,15 @@ def calculate_damage(attacker, defender, move, rng=random, weather=None) -> Dama
     elif weather and move.type == _WEATHER_WEAKEN.get(weather):
         weather_mult = 0.5
 
-    damage = int(base * stab * type_eff * crit_mult * variance * weather_mult)
+    item_mult = held_items.power_modifier(attacker, move)
+
+    damage = int(base * stab * type_eff * crit_mult * variance * weather_mult * item_mult)
     damage = max(1, damage)
     return DamageResult(damage=damage, hit=True, effectiveness=type_eff, is_crit=is_crit)
 
 
 class Battle:
-    def __init__(self, player, enemy, rng=random):
+    def __init__(self, player, enemy, rng=random, location=None):
         # Aceita tanto um único Pokemon (modo clássico 1x1) quanto uma lista
         # (time completo), pra não quebrar quem já chama Battle(p1, p2).
         self.player_team = player if isinstance(player, list) else [player]
@@ -97,8 +104,13 @@ class Battle:
         self.rng = rng
         self.turn_count = 0
         self.fled = False
-        self.weather = None  # None ou "sun"/"rain"/"sandstorm"/"hail"
-        self.weather_turns = 0
+        # `location` é opcional (ver pokebattle/locations.py): só precisa ter
+        # um atributo `.weather`. Quando presente, vira um "clima fixo" da
+        # arena — não expira sozinho (weather_turns fica None enquanto for
+        # esse o clima vigente), diferente de um golpe de clima normal.
+        self.location = location
+        self.weather = location.weather if location else None  # None ou "sun"/"rain"/"sandstorm"/"hail"
+        self.weather_turns = None if (location and location.weather) else 0
         # Intimidate de quem começa a batalha em campo (trocas depois disso
         # passam por switch(), que já dispara isso sozinho).
         self.intro_log = [
@@ -295,7 +307,11 @@ class Battle:
             log.append("O ataque errou!")
             return log
         if result.effectiveness == 0.0:
-            log.append(f"Não afetou {defender.name}...")
+            absorb_message = abilities.on_absorb(defender, move.type)
+            log.append(absorb_message or f"Não afetou {defender.name}...")
+            return log
+        if abilities.blocks_non_supereffective(defender, result.effectiveness, move.category):
+            log.append(f"{defender.name} tem Wonder Guard e não foi afetado!")
             return log
 
         sturdy_save = abilities.survives_with_sturdy(defender, result.damage)
@@ -368,23 +384,42 @@ class Battle:
             return []
         if move.ailment == CONFUSION:
             message = try_confuse(defender, rng=self.rng)
-        else:
-            message = apply_status(defender, move.ailment, rng=self.rng)
-        return [message] if message else []
+            return [message] if message else []
+
+        message = apply_status(defender, move.ailment, rng=self.rng)
+        if not message:
+            return []
+        log = [message]
+        cure_message = held_items.try_cure_status(defender, move.ailment, rng=self.rng)
+        if cure_message:
+            log.append(cure_message)
+        return log
 
     def _apply_residual_damage(self) -> list[str]:
         log = []
         for pokemon in (self.player, self.enemy):
             if pokemon.is_fainted:
                 continue
-            result = residual_damage(pokemon)
-            if result is None:
-                continue
-            damage, message = result
-            pokemon.take_damage(damage)
-            log.append(message)
+            if pokemon.status == POISON and abilities.has_ability(pokemon, abilities.POISON_HEAL):
+                heal_message = abilities.poison_heal_tick(pokemon)
+                if heal_message:
+                    log.append(heal_message)
+            else:
+                result = residual_damage(pokemon)
+                if result is not None:
+                    damage, message = result
+                    pokemon.take_damage(damage)
+                    log.append(message)
+                    if pokemon.is_fainted:
+                        log.append(f"{pokemon.name} desmaiou!")
             if pokemon.is_fainted:
-                log.append(f"{pokemon.name} desmaiou!")
+                continue
+            leftovers_message = held_items.end_of_turn_heal(pokemon)
+            if leftovers_message:
+                log.append(leftovers_message)
+            speed_boost_message = abilities.on_turn_end(pokemon)
+            if speed_boost_message:
+                log.append(speed_boost_message)
         log.extend(self._apply_weather_residual())
         log.extend(self._tick_weather())
         return log
@@ -408,10 +443,17 @@ class Battle:
         return log
 
     def _tick_weather(self) -> list[str]:
-        if self.weather is None:
+        # weather_turns None = clima fixo do local (locations.py): não expira sozinho.
+        if self.weather is None or self.weather_turns is None:
             return []
         self.weather_turns -= 1
         if self.weather_turns <= 0:
+            if self.location and self.location.weather:
+                # Um golpe de clima só sobrepõe o clima fixo da arena por um
+                # tempo — depois volta a valer o clima do local.
+                self.weather = self.location.weather
+                self.weather_turns = None
+                return [f"O tempo voltou a ficar {WEATHER_LABELS[self.location.weather]}."]
             self.weather = None
             self.weather_turns = 0
             return ["O tempo voltou ao normal."]

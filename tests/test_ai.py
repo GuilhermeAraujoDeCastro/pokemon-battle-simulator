@@ -90,6 +90,52 @@ def test_hard_difficulty_accounts_for_stab_on_top_of_type_effectiveness():
     assert move is stab_move
 
 
+def _save(trainers_defeated=0, battles_lost=0):
+    return {"trainers_defeated": trainers_defeated, "battles_lost": battles_lost}
+
+
+def test_adaptive_personality_is_uniform_with_too_few_battles():
+    # Só 2 batalhas registradas: não é sinal suficiente pra pesar nada.
+    rng = FixedChoiceRNG(1)
+    result = ai.adaptive_personality(_save(trainers_defeated=2), rng=rng)
+    assert result == ai.PERSONALITIES[1]
+
+
+class WeightedChoiceRNG:
+    """Captura os pesos que ai.adaptive_personality calculou, sem depender
+    de sorte pra afirmar a direção do peso."""
+
+    def __init__(self):
+        self.last_weights = None
+
+    def choices(self, population, weights=None, k=1):
+        self.last_weights = dict(zip(population, weights))
+        return [population[0]]
+
+    def choice(self, seq):
+        return seq[0]
+
+
+def test_adaptive_personality_favors_strategic_when_the_player_is_winning_a_lot():
+    rng = WeightedChoiceRNG()
+    ai.adaptive_personality(_save(trainers_defeated=9, battles_lost=1), rng=rng)  # 90% de vitória
+    assert rng.last_weights["strategic"] > rng.last_weights["aggressive"]
+    assert rng.last_weights["strategic"] > rng.last_weights["defensive"]
+
+
+def test_adaptive_personality_favors_defensive_when_the_player_is_struggling():
+    rng = WeightedChoiceRNG()
+    ai.adaptive_personality(_save(trainers_defeated=1, battles_lost=9), rng=rng)  # 10% de vitória
+    assert rng.last_weights["defensive"] > rng.last_weights["strategic"]
+    assert rng.last_weights["defensive"] > rng.last_weights["aggressive"]
+
+
+def test_adaptive_personality_is_neutral_around_a_fifty_percent_win_rate():
+    rng = WeightedChoiceRNG()
+    ai.adaptive_personality(_save(trainers_defeated=5, battles_lost=5), rng=rng)
+    assert len(set(rng.last_weights.values())) == 1  # todos os pesos iguais
+
+
 def test_unknown_difficulty_and_personality_fall_back_to_sane_defaults():
     weak = Move("Fraco", "normal", 10, "physical")
     strong = Move("Forte", "normal", 90, "physical")

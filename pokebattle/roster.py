@@ -19,6 +19,7 @@ from .pokemon import Pokemon
 from .status import CONFUSION, MAJOR_STATUSES
 
 LEVEL = 50
+SHINY_ODDS = 4096  # 1 em 4096, igual aos jogos principais modernos
 _STAT_NAMES = ("hp", "attack", "defense", "sp_atk", "sp_def", "speed")
 
 # Quantos golpes candidatos buscar na API pra escolher os 4 finais. Maior =
@@ -229,13 +230,18 @@ def random_ivs(rng=random) -> dict:
     return {stat: rng.randint(0, 31) for stat in _STAT_NAMES}
 
 
-def build_pokemon(species: str, level: int = LEVEL, rng=random) -> Pokemon:
+def build_pokemon(species: str, level: int = LEVEL, rng=random,
+                   ivs: Optional[dict] = None, nature: Optional[str] = None) -> Pokemon:
     """Busca um Pokémon na PokeAPI e monta um Pokemon pronto pra batalha, já
     com IVs aleatórios, natureza aleatória e o sprite em `pokemon.sprite_path`.
 
     Cada Pokémon do modo gráfico é um indivíduo (IV/natureza próprios), do
     jeito que os jogos fazem — diferente do roster fixo do modo texto, que
     usa IV/EV neutros de propósito (ver pokemon.py).
+
+    `ivs`/`nature` deixam fixar os dois em vez de sortear — usado por
+    teamcodec.py pra remontar um time importado com os stats exatos do
+    texto exportado, em vez de sortear de novo.
     """
     pokemon_data = pokeapi.get_pokemon(species)
 
@@ -249,10 +255,12 @@ def build_pokemon(species: str, level: int = LEVEL, rng=random) -> Pokemon:
 
     pokemon = Pokemon(
         display_name(pokemon_data["name"]), types, level, base_stats, moves,
-        ivs=random_ivs(rng), nature=random_nature(rng),
+        ivs=ivs if ivs is not None else random_ivs(rng), nature=nature or random_nature(rng),
     )
     pokemon.species = pokemon_data["name"]
     pokemon.pokedex_id = pokemon_data["id"]
-    pokemon.sprite_path = sprites.get_sprite_path(pokemon_data)
+    pokemon.is_shiny = rng.randint(1, SHINY_ODDS) == 1
+    pokemon.sprite_path = sprites.get_sprite_path(pokemon_data, shiny=pokemon.is_shiny)
     pokemon.ability = _pick_ability(pokemon_data)
+    pokemon.held_item = None
     return pokemon

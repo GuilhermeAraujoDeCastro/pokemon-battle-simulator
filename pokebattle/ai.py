@@ -34,6 +34,13 @@ PERSONALITY_LABELS = {
 
 _LOW_HP_RATIO = 0.4  # abaixo disso, o perfil defensivo troca ataque por golpe de status
 
+# Pra IA adaptativa (adaptive_personality): quantas batalhas registradas no
+# save já bastam pra confiar na taxa de vitória do jogador. Com poucas
+# batalhas, o sorteio uniforme de sempre continua valendo.
+_MIN_BATTLES_FOR_ADAPTATION = 5
+_HIGH_WIN_RATE = 0.7  # jogador mandando bem: pesa mais pro perfil estratégico (o mais afiado)
+_LOW_WIN_RATE = 0.3  # jogador apanhando: pesa mais pro perfil defensivo (o mais brando)
+
 
 def _expected_damage(move, attacker, defender) -> float:
     stab = 1.5 if move.type in attacker.types else 1.0
@@ -65,3 +72,28 @@ def choose_move(attacker, defender, difficulty="normal", personality="aggressive
 
     # difficulty == "hard": todo mundo calcula dano esperado de verdade
     return max(pool, key=lambda m: _expected_damage(m, attacker, defender))
+
+
+def adaptive_personality(save_data: dict, rng=random) -> str:
+    """Sorteia a personalidade do próximo treinador adversário (fora de
+    ginásio, que já tem a sua curada) pesando pelo histórico do jogador: com
+    poucas batalhas registradas, sorteio uniforme normal; com uma taxa de
+    vitória alta, pesa mais pro perfil "strategic" (o que mais aperta o
+    jogo); com o jogador apanhando bastante, pesa mais pro "defensive" (o
+    mais brando), pra não empurrar alguém que já está tendo dificuldade.
+    """
+    wins = save_data.get("trainers_defeated", 0)
+    losses = save_data.get("battles_lost", 0)
+    total = wins + losses
+    if total < _MIN_BATTLES_FOR_ADAPTATION:
+        return rng.choice(PERSONALITIES)
+
+    win_rate = wins / total
+    if win_rate >= _HIGH_WIN_RATE:
+        weights = {"aggressive": 1, "defensive": 1, "strategic": 3}
+    elif win_rate <= _LOW_WIN_RATE:
+        weights = {"aggressive": 1, "defensive": 3, "strategic": 1}
+    else:
+        weights = {"aggressive": 1, "defensive": 1, "strategic": 1}
+
+    return rng.choices(PERSONALITIES, weights=[weights[p] for p in PERSONALITIES], k=1)[0]

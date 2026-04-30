@@ -155,3 +155,99 @@ def test_modify_stage_clamps_between_minus_six_and_six():
 
     changed = mon.modify_stage("attack", -1)
     assert changed == 0
+
+
+# ---------- Wonder Guard, Speed Boost, Sand Veil, Water/Volt Absorb, Poison Heal ----------
+
+def test_wonder_guard_blocks_non_super_effective_damage():
+    defender = make_pokemon("Guardiao", ability="wonder-guard", types=["normal"])
+    move = Move("Tackle", "normal", 40, "physical")  # 1x — não é super efetivo
+    assert abilities.blocks_non_supereffective(defender, type_effectiveness=1.0, move_category=move.category)
+
+
+def test_wonder_guard_lets_super_effective_moves_through():
+    defender = make_pokemon("Guardiao", ability="wonder-guard", types=["grass"])
+    move = Move("Ember", "fire", 40, "special")  # 2x contra Grass
+    assert not abilities.blocks_non_supereffective(defender, type_effectiveness=2.0, move_category=move.category)
+
+
+def test_wonder_guard_never_blocks_status_moves():
+    defender = make_pokemon("Guardiao", ability="wonder-guard")
+    assert not abilities.blocks_non_supereffective(defender, type_effectiveness=1.0, move_category="status")
+
+
+def test_calculate_damage_deals_zero_through_wonder_guard():
+    attacker = make_pokemon("Atacante")
+    defender = make_pokemon("Guardiao", ability="wonder-guard", types=["normal"])
+    move = Move("Tackle", "normal", 40, "physical")
+
+    result = calculate_damage(attacker, defender, move, rng=FixedRNG())
+    assert result.damage == 0
+
+
+def test_speed_boost_raises_speed_stage_at_turn_end():
+    mon = make_pokemon("Veloz", ability="speed-boost")
+    message = abilities.on_turn_end(mon)
+    assert mon.stat_stages["speed"] == 1
+    assert message is not None
+
+
+def test_speed_boost_does_nothing_without_the_ability():
+    mon = make_pokemon("Normal")
+    assert abilities.on_turn_end(mon) is None
+    assert mon.stat_stages["speed"] == 0
+
+
+def test_sand_veil_lowers_accuracy_in_a_sandstorm():
+    defender = make_pokemon("Escondido", ability="sand-veil")
+    assert abilities.accuracy_multiplier(defender, weather="sandstorm") < 1.0
+    assert abilities.accuracy_multiplier(defender, weather=None) == 1.0
+    assert abilities.accuracy_multiplier(defender, weather="rain") == 1.0
+
+
+def test_water_absorb_blocks_water_damage_and_heals():
+    attacker = make_pokemon("Aquatico")
+    defender = make_pokemon("Esponja", ability="water-absorb")
+    defender.current_hp = 10
+    move = Move("Water Gun", "water", 40, "special")
+
+    result = calculate_damage(attacker, defender, move, rng=FixedRNG())
+    assert result.damage == 0
+
+    message = abilities.on_absorb(defender, "water")
+    assert defender.current_hp > 10
+    assert message is not None
+
+
+def test_water_absorb_does_nothing_for_a_different_type():
+    defender = make_pokemon("Esponja", ability="water-absorb")
+    assert abilities.on_absorb(defender, "fire") is None
+
+
+def test_volt_absorb_grants_immunity_to_electric_moves():
+    attacker = make_pokemon("Eletrico")
+    defender = make_pokemon("Esponja", ability="volt-absorb")
+    move = Move("Thunderbolt", "electric", 90, "special")
+
+    result = calculate_damage(attacker, defender, move, rng=FixedRNG())
+    assert result.effectiveness == 0.0
+    assert result.damage == 0
+
+
+def test_poison_heal_heals_instead_of_taking_poison_damage():
+    from pokebattle.status import POISON
+
+    mon = make_pokemon("Curado", ability="poison-heal", hp=160)
+    mon.status = POISON
+    mon.current_hp = 100
+    expected_heal = mon.max_hp // 8
+
+    message = abilities.poison_heal_tick(mon)
+
+    assert mon.current_hp == 100 + expected_heal
+    assert message is not None
+
+
+def test_poison_heal_does_nothing_without_poison_status():
+    mon = make_pokemon("Saudavel", ability="poison-heal")
+    assert abilities.poison_heal_tick(mon) is None

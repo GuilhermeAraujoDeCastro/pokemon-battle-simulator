@@ -14,8 +14,11 @@ SPRITE_CACHE_DIR = Path(__file__).resolve().parent.parent / ".pokecache" / "spri
 TIMEOUT = 10
 
 
-def best_sprite_url(pokemon_data: dict[str, Any]) -> Optional[str]:
+def best_sprite_url(pokemon_data: dict[str, Any], shiny: bool = False) -> Optional[str]:
     sprites = pokemon_data.get("sprites") or {}
+    if shiny:
+        shiny_artwork = sprites.get("other", {}).get("official-artwork", {}).get("front_shiny")
+        return shiny_artwork or sprites.get("front_shiny") or best_sprite_url(pokemon_data, shiny=False)
     artwork = (
         sprites.get("other", {})
         .get("official-artwork", {})
@@ -24,17 +27,20 @@ def best_sprite_url(pokemon_data: dict[str, Any]) -> Optional[str]:
     return artwork or sprites.get("front_default")
 
 
-def get_sprite_path(pokemon_data: dict[str, Any]) -> Optional[Path]:
+def get_sprite_path(pokemon_data: dict[str, Any], shiny: bool = False) -> Optional[Path]:
     """Devolve o caminho local da imagem do Pokémon, baixando se preciso.
 
     Devolve None se a PokeAPI não tiver nenhuma imagem pra esse Pokémon, ou
     se o download falhar (o chamador decide o que mostrar no lugar).
+    `shiny=True` busca a variante rara (1/4096, ver roster.py), cacheada
+    separada da normal.
     """
-    url = best_sprite_url(pokemon_data)
+    url = best_sprite_url(pokemon_data, shiny=shiny)
     if not url:
         return None
 
-    local_path = SPRITE_CACHE_DIR / f"{pokemon_data['id']}.png"
+    suffix = "_shiny" if shiny else ""
+    local_path = SPRITE_CACHE_DIR / f"{pokemon_data['id']}{suffix}.png"
     if local_path.exists():
         return local_path
 

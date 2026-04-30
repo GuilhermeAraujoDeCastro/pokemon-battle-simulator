@@ -31,6 +31,21 @@ TYPE_IMMUNITY_ABILITIES = {
     "levitate": "ground",
 }
 
+# Habilidade -> tipo de golpe que ela absorve: além da imunidade de
+# TYPE_IMMUNITY_ABILITIES, ainda cura 1/4 do HP máximo (Water Absorb, Volt
+# Absorb).
+TYPE_ABSORB_ABILITIES = {
+    "water-absorb": "water",
+    "volt-absorb": "electric",
+}
+ABSORB_HEAL_FRACTION = 4  # cura 1/4 do HP máximo
+
+WONDER_GUARD = "wonder-guard"
+SPEED_BOOST = "speed-boost"
+SAND_VEIL = "sand-veil"
+POISON_HEAL = "poison-heal"
+SAND_VEIL_ACCURACY_MULTIPLIER = 0.8  # golpes contra quem tem Sand Veil, na areia, erram mais
+
 DISPLAY_NAMES = {
     "static": "Static",
     "flame-body": "Flame Body",
@@ -40,6 +55,12 @@ DISPLAY_NAMES = {
     "guts": "Guts",
     "rough-skin": "Rough Skin",
     "sturdy": "Sturdy",
+    "wonder-guard": "Wonder Guard",
+    "speed-boost": "Speed Boost",
+    "sand-veil": "Sand Veil",
+    "water-absorb": "Water Absorb",
+    "volt-absorb": "Volt Absorb",
+    "poison-heal": "Poison Heal",
 }
 
 
@@ -54,8 +75,70 @@ def has_ability(pokemon, ability_name: str) -> bool:
 
 
 def grants_type_immunity(defender, move_type: str) -> bool:
-    """True se a habilidade do defensor anula esse tipo de golpe (Levitate)."""
-    return TYPE_IMMUNITY_ABILITIES.get(getattr(defender, "ability", None)) == move_type
+    """True se a habilidade do defensor anula esse tipo de golpe (Levitate,
+    e também Water Absorb/Volt Absorb — a cura deles é tratada à parte por
+    on_absorb, já que calculate_damage só calcula, não cura ninguém)."""
+    ability = getattr(defender, "ability", None)
+    if TYPE_IMMUNITY_ABILITIES.get(ability) == move_type:
+        return True
+    return TYPE_ABSORB_ABILITIES.get(ability) == move_type
+
+
+def on_absorb(defender, move_type: str) -> Optional[str]:
+    """Water Absorb/Volt Absorb: além da imunidade (já aplicada em
+    grants_type_immunity), cura 1/4 do HP máximo do defensor. Devolve a
+    mensagem de log, ou None se a habilidade não é essa ou o tipo não bate."""
+    ability = getattr(defender, "ability", None)
+    if TYPE_ABSORB_ABILITIES.get(ability) != move_type or defender.is_fainted:
+        return None
+    if defender.current_hp >= defender.max_hp:
+        return f"{defender.name} tem {display_name(ability)}, mas já está com o HP cheio!"
+    amount = max(1, defender.max_hp // ABSORB_HEAL_FRACTION)
+    defender.heal(amount)
+    return f"{defender.name} absorveu o golpe com {display_name(ability)} e recuperou HP!"
+
+
+def blocks_non_supereffective(defender, type_effectiveness: float, move_category: str) -> bool:
+    """Wonder Guard: golpes de dano só acertam se forem super efetivos
+    (multiplicador > 1). Golpes de status continuam passando normalmente."""
+    return (
+        has_ability(defender, WONDER_GUARD)
+        and move_category != "status"
+        and type_effectiveness <= 1.0
+    )
+
+
+def accuracy_multiplier(defender, weather: Optional[str]) -> float:
+    """Sand Veil: na tempestade de areia, golpes contra esse Pokémon erram
+    mais (na prática, uma evasão extra)."""
+    if has_ability(defender, SAND_VEIL) and weather == "sandstorm":
+        return SAND_VEIL_ACCURACY_MULTIPLIER
+    return 1.0
+
+
+def on_turn_end(pokemon) -> Optional[str]:
+    """Speed Boost: sobe 1 estágio de Velocidade no fim de cada turno em que
+    esse Pokémon está em campo, sem precisar de gatilho nenhum."""
+    if not has_ability(pokemon, SPEED_BOOST) or pokemon.is_fainted:
+        return None
+    changed = pokemon.modify_stage("speed", 1)
+    if changed == 0:
+        return None
+    return f"A Velocidade de {pokemon.name} subiu com Speed Boost!"
+
+
+def poison_heal_tick(pokemon) -> Optional[str]:
+    """Poison Heal: em vez de tomar o dano residual normal do veneno, cura
+    1/8 do HP máximo no fim do turno. Quem chama deve pular o
+    status.residual_damage normal pra esse Pokémon quando isso devolve uma
+    mensagem."""
+    if not has_ability(pokemon, POISON_HEAL) or pokemon.status != POISON or pokemon.is_fainted:
+        return None
+    if pokemon.current_hp >= pokemon.max_hp:
+        return None
+    amount = max(1, pokemon.max_hp // 8)
+    pokemon.heal(amount)
+    return f"{pokemon.name} recuperou {amount} HP com Poison Heal!"
 
 
 def survives_with_sturdy(defender, incoming_damage: int) -> bool:

@@ -35,6 +35,21 @@ def test_every_gym_has_a_valid_ai_personality():
         assert gym.personality in ai.PERSONALITIES, f"{gym.id} tem personalidade inválida: {gym.personality}"
 
 
+def test_every_gym_has_a_valid_location():
+    from pokebattle import locations
+
+    for gym in gyms.GYMS:
+        locations.get_location(gym.location_id)  # levanta KeyError se o id não existir
+
+
+def test_the_fire_gym_is_at_the_volcano():
+    assert gyms.get_gym("cinnabar").location_id == "volcano"
+
+
+def test_the_water_gym_is_at_the_lake():
+    assert gyms.get_gym("cerulean").location_id == "lake"
+
+
 def test_build_gym_team_uses_each_trainers_own_level(monkeypatch):
     from pokebattle import roster
 
