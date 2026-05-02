@@ -16,12 +16,17 @@ _DEFAULT_SAVE = {
     "pokedex_seen": [],  # nomes de espécie (formato da PokeAPI) já vistos em batalha
     "badges": [],  # ids dos ginásios já vencidos, na ordem em que foram vencidos
     "money": 0,  # dinheiro do jogo (recompensa de ginásio), nada a ver com dinheiro de verdade
-    "items": {"potion": 3},  # inventário da PokéMart; começa com 3 Poções, como o jogo sempre deu
+    "items": {"potion": 3},  # inventário da PokéMart (cura, revive, EV, itens segurados); começa com 3 Poções
     "trainer_name": "",  # perguntado uma vez, na primeira tela do jogo
     "starter": "",  # espécie do Pokémon inicial (formato da PokeAPI), escolhido uma vez
     "difficulty": "normal",  # "easy" | "normal" | "hard" — ver pokebattle/ai.py
     "trainers_defeated": 0,  # total de batalhas vencidas (comuns + ginásio) — usado pelas missões
     "quests_completed": [],  # ids de missões já resgatadas — ver pokebattle/quests.py
+    "battles_lost": 0,  # usado pela IA adaptativa (ai.adaptive_personality) e por conquistas
+    "avatar_color": "red",  # cor do avatar do treinador — ver pokebattle/avatar.py
+    "nuzlocke": False,  # modo Nuzlocke ligado/desligado — ver pokebattle/nuzlocke.py
+    "achievements_unlocked": [],  # ids de conquistas já desbloqueadas — ver pokebattle/achievements.py
+    "owned_pokemon": [],  # espécies compradas na loja de Pokémon da PokéMart (fora do time atual)
 }
 
 
@@ -139,5 +144,52 @@ def remove_item(item_id: str, qty: int = 1) -> bool:
     if have < qty:
         return False
     data["items"][item_id] = have - qty
+    write(data)
+    return True
+
+
+def increment_battles_lost(amount: int = 1) -> dict[str, Any]:
+    data = load()
+    data["battles_lost"] += amount
+    write(data)
+    return data
+
+
+def set_avatar_color(color_id: str) -> dict[str, Any]:
+    data = load()
+    data["avatar_color"] = color_id
+    write(data)
+    return data
+
+
+def set_nuzlocke(enabled: bool) -> dict[str, Any]:
+    data = load()
+    data["nuzlocke"] = bool(enabled)
+    write(data)
+    return data
+
+
+def add_achievement(achievement_id: str) -> dict[str, Any]:
+    data = load()
+    if achievement_id not in data["achievements_unlocked"]:
+        data["achievements_unlocked"].append(achievement_id)
+        write(data)
+    return data
+
+
+def add_owned_pokemon(species: str) -> dict[str, Any]:
+    data = load()
+    data["owned_pokemon"].append(species)
+    write(data)
+    return data
+
+
+def remove_owned_pokemon(species: str) -> bool:
+    """Tenta remover uma espécie comprada (ex: depois de adicioná-la ao
+    time). Devolve False se não tiver nenhuma sobrando pra remover."""
+    data = load()
+    if species not in data["owned_pokemon"]:
+        return False
+    data["owned_pokemon"].remove(species)
     write(data)
     return True
