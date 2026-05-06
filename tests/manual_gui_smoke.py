@@ -193,7 +193,11 @@ def test_gym_screen_and_battle():
     import pokebattle.roster as roster_module
     import pokebattle.save as save_module
 
-    saved = {"pokedex_seen": [], "badges": [], "money": 0, "trainers_defeated": 0}
+    saved = {
+        "pokedex_seen": [], "badges": [], "money": 0, "items": {}, "trainers_defeated": 0,
+        "quests_completed": [], "achievements_unlocked": [], "owned_pokemon": [],
+        "battles_lost": 0, "avatar_color": "red", "nuzlocke": False,
+    }
 
     def fake_load():
         return dict(saved)
@@ -211,18 +215,29 @@ def test_gym_screen_and_battle():
         saved["trainers_defeated"] += amount
         return saved
 
+    def fake_add_achievement(achievement_id):
+        if achievement_id not in saved["achievements_unlocked"]:
+            saved["achievements_unlocked"].append(achievement_id)
+        return saved
+
     original_load = save_module.load
     original_add_badge = save_module.add_badge
     original_add_money = save_module.add_money
     original_increment_trainers_defeated = save_module.increment_trainers_defeated
+    original_add_achievement = save_module.add_achievement
     original_build_pokemon = roster_module.build_pokemon
+    original_showinfo = main_gui.messagebox.showinfo
     save_module.load = fake_load
     save_module.add_badge = fake_add_badge
     save_module.add_money = fake_add_money
     save_module.increment_trainers_defeated = fake_increment_trainers_defeated
+    save_module.add_achievement = fake_add_achievement
     roster_module.build_pokemon = lambda name, level=50, rng=None: fake_pokemon(
         name.capitalize(), hp=1, attack=10,
     )
+    # Conquistas abrem um messagebox modal ao desbloquear — vira no-op aqui
+    # (senão o script automatizado trava esperando um clique que nunca vem).
+    main_gui.messagebox.showinfo = lambda *a, **k: None
 
     try:
         app = main_gui.PokeBattleApp()
@@ -265,7 +280,9 @@ def test_gym_screen_and_battle():
         save_module.add_badge = original_add_badge
         save_module.add_money = original_add_money
         save_module.increment_trainers_defeated = original_increment_trainers_defeated
+        save_module.add_achievement = original_add_achievement
         roster_module.build_pokemon = original_build_pokemon
+        main_gui.messagebox.showinfo = original_showinfo
 
 
 def test_victory_progression_flow():
@@ -592,6 +609,271 @@ def test_quest_screen():
         save_module.add_completed_quest = original_add_completed_quest
 
 
+def test_new_feature_screens():
+    """Abre as telas novas (Conquistas, Treino, Replays, Loja com itens
+    segurados/Pokémon) e roda um turno de PvP e uma batalha com Nuzlocke e
+    mega evolução — tudo com dados falsos, só pra pegar exceção de layout."""
+    import pokebattle.pokeapi as pokeapi_module
+    import pokebattle.roster as roster_module
+    import pokebattle.save as save_module
+    from pokebattle.battle import Battle
+
+    base_save = {
+        "pokedex_seen": [], "badges": [], "money": 5000, "items": {"held_leftovers": 1},
+        "trainer_name": "Ash", "starter": "bulbasaur", "difficulty": "normal",
+        "trainers_defeated": 0, "quests_completed": [], "achievements_unlocked": [],
+        "owned_pokemon": [], "battles_lost": 0, "avatar_color": "blue", "nuzlocke": False,
+    }
+    original_load = save_module.load
+    original_showinfo = main_gui.messagebox.showinfo
+    save_module.load = lambda: dict(base_save)
+    main_gui.messagebox.showinfo = lambda *a, **k: None
+
+    try:
+        app = main_gui.PokeBattleApp()
+
+        app.show_frame(main_gui.AchievementsScreen)
+        app.update()
+
+        app.show_frame(main_gui.TrainingScreen)  # sem player_team: mostra a mensagem de "monte o time"
+        app.update()
+        app.player_team = [fake_pokemon("Treinado")]
+        app.show_frame(main_gui.TrainingScreen)
+        app.update()
+
+        app.show_frame(main_gui.ReplayListScreen)  # sem replay nenhum salvo ainda
+        app.update()
+
+        app.show_frame(main_gui.MartScreen)  # itens segurados + loja de Pokémon
+        app.update()
+
+        print("OK: Conquistas, Treino, Replays e Loja (itens segurados + Pokémon).")
+
+        # ---------- PvP local: um turno completo dos dois lados ----------
+        p1 = fake_pokemon("Jogador1Mon", moves=[Move("Tackle", "normal", 40, "physical")])
+        p2 = fake_pokemon("Jogador2Mon", moves=[Move("Tackle", "normal", 40, "physical")])
+        app.battle = Battle(p1, p2)
+        pvp_screen = app.show_frame(main_gui.BattleScreen, pvp=True, player_names=("Jogador 1", "Jogador 2"))
+        app.update()
+        pvp_screen._pvp_move_chosen(0, p1.moves[0])
+        app.update()
+        pvp_screen._pvp_move_chosen(1, p2.moves[0])
+        for _ in range(10):
+            app.update()
+            time.sleep(0.02)
+        print("OK: turno de PvP local (hot-seat) dos dois lados.")
+
+        # ---------- Nuzlocke: quem desmaia é removido do time pra sempre ----------
+        nuzlocke_save = dict(base_save, nuzlocke=True)
+        save_module.load = lambda: dict(nuzlocke_save)
+        survivor = fake_pokemon("Sobrevivente", hp=200, moves=[Move("Tackle", "normal", 100, "physical")])
+        doomed = fake_pokemon("Condenado", hp=1)
+        doomed.current_hp = 0
+        strong_enemy = fake_pokemon("Forte", attack=999, hp=999)
+        app.player_team = [survivor, doomed]
+        app.enemy_team = [strong_enemy]
+        app.battle = Battle([survivor, doomed], [strong_enemy])
+        nuzlocke_screen = app.show_frame(main_gui.BattleScreen)
+        app.update()
+        assert nuzlocke_screen._nuzlocke_enabled is True
+        nuzlocke_screen._player_move(survivor.moves[0])
+        for _ in range(20):
+            app.update()
+            time.sleep(0.02)
+        assert doomed not in app.player_team, "quem desmaiou devia ter sido liberado pra sempre no Nuzlocke"
+        print("OK: modo Nuzlocke libera quem desmaiou.")
+        save_module.load = lambda: dict(base_save)
+
+        # ---------- mega evolução: ativa no início e reverte no fim da batalha ----------
+        fake_charizard_data = {
+            "name": "charizard-mega-x", "id": 10034,
+            "types": [{"slot": 1, "type": {"name": "fire"}}, {"slot": 2, "type": {"name": "dragon"}}],
+            "stats": [
+                {"base_stat": 78, "stat": {"name": "hp"}}, {"base_stat": 130, "stat": {"name": "attack"}},
+                {"base_stat": 111, "stat": {"name": "defense"}}, {"base_stat": 130, "stat": {"name": "special-attack"}},
+                {"base_stat": 85, "stat": {"name": "special-defense"}}, {"base_stat": 100, "stat": {"name": "speed"}},
+            ],
+        }
+        original_get_pokemon = pokeapi_module.get_pokemon
+        pokeapi_module.get_pokemon = lambda name: fake_charizard_data
+        mega_mon = fake_pokemon("Charizard", hp=200)
+        mega_mon.species = "charizard"
+        mega_mon.held_item = "held_mega_stone_charizardite_x"
+        weak_enemy = fake_pokemon("Fraquinho", hp=1, attack=1)
+        weak_enemy.current_hp = 1  # garante nocaute no primeiro golpe (hp acima é stat base, não o HP final)
+        app.player_team = [mega_mon]
+        app.enemy_team = [weak_enemy]
+        app.battle = Battle(mega_mon, weak_enemy)
+        mega_screen = app.show_frame(main_gui.BattleScreen)
+        app.update()
+        assert getattr(mega_mon, "is_mega", False) is True, "devia ter mega evoluído no início da batalha"
+        mega_screen._player_move(mega_mon.moves[0])
+        for _ in range(20):
+            app.update()
+            time.sleep(0.02)
+        assert getattr(mega_mon, "is_mega", False) is False, "devia ter revertido a mega evolução no fim da batalha"
+        pokeapi_module.get_pokemon = original_get_pokemon
+        print("OK: mega evolução ativa no início e reverte no fim da batalha.")
+
+        # ---------- torneio: bracket de 4, partidas só-IA simulam sozinhas ----------
+        original_build_pokemon = roster_module.build_pokemon
+        original_list_species = roster_module.list_all_species
+        roster_module.build_pokemon = lambda species, level=50, rng=None: fake_pokemon(species.capitalize())
+        roster_module.list_all_species = lambda: ["rattata", "pidgey", "weedle", "caterpie"]
+        app.player_team = [fake_pokemon("Campeao", attack=200, hp=200)]
+        app.tournament = None
+        app.tournament_ai_teams = {}
+        tournament_screen = app.show_frame(main_gui.TournamentScreen)
+        for _ in range(20):
+            app.update()
+            time.sleep(0.02)
+            if app.tournament_ai_teams:
+                break
+        app.show_frame(main_gui.TournamentScreen)  # re-renderiza já com os times prontos
+        app.update()
+        roster_module.build_pokemon = original_build_pokemon
+        roster_module.list_all_species = original_list_species
+        print("OK: tela de Torneio monta o bracket e simula as partidas só de IA.")
+
+        app.destroy()
+    finally:
+        save_module.load = original_load
+        main_gui.messagebox.showinfo = original_showinfo
+
+
+def test_team_select_extras():
+    """Avatar, equipar item segurado, Pokémon comprado, exportar/importar
+    time e troca — tudo na TeamSelectScreen, com dados falsos (sem rede)."""
+    import pokebattle.roster as roster_module
+    import pokebattle.save as save_module
+
+    saved = {
+        "pokedex_seen": [], "badges": [], "money": 0, "items": {"held_leftovers": 2},
+        "trainer_name": "Ash", "starter": "", "difficulty": "normal",
+        "trainers_defeated": 0, "quests_completed": [], "achievements_unlocked": [],
+        "owned_pokemon": ["mewtwo"], "battles_lost": 0, "avatar_color": "red", "nuzlocke": False,
+    }
+
+    def fake_load():
+        return {**saved, "items": dict(saved["items"]), "owned_pokemon": list(saved["owned_pokemon"])}
+
+    def fake_set_avatar_color(color_id):
+        saved["avatar_color"] = color_id
+        return fake_load()
+
+    def fake_add_item(item_id, qty=1):
+        saved["items"][item_id] = saved["items"].get(item_id, 0) + qty
+        return fake_load()
+
+    def fake_remove_item(item_id, qty=1):
+        have = saved["items"].get(item_id, 0)
+        if have < qty:
+            return False
+        saved["items"][item_id] = have - qty
+        return True
+
+    def fake_remove_owned_pokemon(species):
+        if species not in saved["owned_pokemon"]:
+            return False
+        saved["owned_pokemon"].remove(species)
+        return True
+
+    original_load = save_module.load
+    original_set_avatar_color = save_module.set_avatar_color
+    original_add_item = save_module.add_item
+    original_remove_item = save_module.remove_item
+    original_remove_owned = save_module.remove_owned_pokemon
+    original_build_pokemon = roster_module.build_pokemon
+    original_build_move = roster_module._build_move
+    save_module.load = fake_load
+    save_module.set_avatar_color = fake_set_avatar_color
+    save_module.add_item = fake_add_item
+    save_module.remove_item = fake_remove_item
+    save_module.remove_owned_pokemon = fake_remove_owned_pokemon
+    def fake_build_pokemon(species, level=50, rng=None, ivs=None, nature=None):
+        mon = fake_pokemon(species.capitalize())
+        mon.species = species
+        return mon
+
+    roster_module.build_pokemon = fake_build_pokemon
+    roster_module._build_move = lambda name: Move("Golpe", "normal", 40, "physical")
+
+    try:
+        app = main_gui.PokeBattleApp()
+        screen = app.show_frame(main_gui.TeamSelectScreen)
+        app.update()
+
+        # ---------- avatar ----------
+        screen._choose_avatar_color("blue")
+        app.update()
+        assert saved["avatar_color"] == "blue"
+
+        # ---------- Pokémon comprado ----------
+        assert screen.owned_list is not None
+        screen.owned_list.selection_set(0)
+        screen._add_owned_selected()
+        app.update()
+        assert screen.chosen == ["mewtwo"]
+        assert "mewtwo" not in saved["owned_pokemon"], "devia ter saído da lista de comprados"
+
+        # ---------- equipar item segurado ----------
+        screen.team_list.selection_set(0)
+        screen._equip_item_selected()
+        app.update()
+        dialog = self_toplevel(screen)
+        # clica no primeiro botão de item disponível (Leftovers)
+        _click_first_matching_button(dialog, "Leftovers")
+        app.update()
+        assert screen.held_item_choices.get(0) == "held_leftovers"
+        assert saved["items"]["held_leftovers"] == 1, "devia ter consumido 1 Leftovers ao equipar"
+
+        # ---------- exportar/importar time (round trip em texto) ----------
+        text = main_gui.teamcodec.team_to_text([roster_module.build_pokemon("mewtwo")])
+        specs = main_gui.teamcodec.text_to_specs(text)
+        assert specs[0]["species"] == "mewtwo"
+
+        # ---------- troca: exporta e reimporta um Pokémon num arquivo ----------
+        import tempfile
+        from pathlib import Path
+        mon = roster_module.build_pokemon("mewtwo")
+        mon.held_item = "held_leftovers"
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "troca.json"
+            main_gui.trade.export_pokemon_to_file(mon, path)
+            rebuilt = main_gui.trade.import_pokemon_from_file(path)
+            assert rebuilt.species == "mewtwo"
+            assert rebuilt.held_item == "held_leftovers"
+
+        print("OK: avatar, comprados, equipar item, exportar/importar time e troca.")
+        app.destroy()
+    finally:
+        save_module.load = original_load
+        save_module.set_avatar_color = original_set_avatar_color
+        save_module.add_item = original_add_item
+        save_module.remove_item = original_remove_item
+        save_module.remove_owned_pokemon = original_remove_owned
+        roster_module.build_pokemon = original_build_pokemon
+        roster_module._build_move = original_build_move
+
+
+def self_toplevel(widget):
+    """Acha o Toplevel mais recente aberto a partir desse widget (um
+    tk.Toplevel(self) vira filho de `self` na árvore de widgets do Tk,
+    mesmo sendo uma janela própria)."""
+    toplevels = [w for w in widget.winfo_children() if isinstance(w, main_gui.tk.Toplevel)]
+    return toplevels[-1]
+
+
+def _click_first_matching_button(widget, text_fragment):
+    for child in widget.winfo_children():
+        if isinstance(child, main_gui.tk.Button) and text_fragment in child["text"]:
+            child.invoke()
+            return True
+        if _click_first_matching_button(child, text_fragment):
+            return True
+    return False
+
+
 if __name__ == "__main__":
     main()
     test_team_select_and_end_screen()
@@ -601,3 +883,5 @@ if __name__ == "__main__":
     test_mart_screen_and_bag_use()
     test_onboarding_and_nickname_flow()
     test_quest_screen()
+    test_new_feature_screens()
+    test_team_select_extras()
