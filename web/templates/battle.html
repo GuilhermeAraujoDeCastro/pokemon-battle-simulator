@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="battle-panels">
+    <div class="panel">
+        <h2>{{ enemy.name }} <span class="level">Lv.{{ enemy.level }}</span></h2>
+        <div class="hp-track"><div class="hp-fill {{ enemy_hp.state }}" style="width: {{ enemy_hp.percent }}%"></div></div>
+        <p class="muted">{{ enemy.current_hp }}/{{ enemy.max_hp }} HP</p>
+    </div>
+    <div class="panel">
+        <h2>{{ player.name }} <span class="level">Lv.{{ player.level }}</span></h2>
+        <div class="hp-track"><div class="hp-fill {{ player_hp.state }}" style="width: {{ player_hp.percent }}%"></div></div>
+        <p class="muted">{{ player.current_hp }}/{{ player.max_hp }} HP</p>
+    </div>
+</div>
+
+<div class="log">
+    {% for line in log[-14:] %}
+    <p>{{ line }}</p>
+    {% endfor %}
+</div>
+
+{% if battle.is_over %}
+<div class="end-banner {{ 'victory' if battle.winner == 'player' else 'defeat' }}">
+    {% if battle.winner == "player" %}
+        Você venceu com {{ player.name }}!
+    {% else %}
+        Você perdeu... {{ enemy.name }} venceu.
+    {% endif %}
+</div>
+<form method="post" action="{{ url_for('battle_reset') }}">
+    <button type="submit" class="primary">Jogar de novo</button>
+</form>
+{% else %}
+<form method="post" action="{{ url_for('battle_move') }}" class="move-grid">
+    {% for move in player.moves %}
+    <button type="submit" name="move_index" value="{{ loop.index0 }}" class="move-button">
+        {{ move.name }}
+        <span class="muted">({{ move.type }}, poder {{ move.power }}, precisão {{ move.accuracy }}%)</span>
+    </button>
+    {% endfor %}
+</form>
+{% endif %}
+{% endblock %}

@@ -1,8 +1,10 @@
 # Simulador de Batalha Pokémon
 
+[![tests](https://github.com/GuilhermeAraujoDeCastro/Batalhapokemonpython/actions/workflows/tests.yml/badge.svg)](https://github.com/GuilhermeAraujoDeCastro/Batalhapokemonpython/actions/workflows/tests.yml)
+
 Jogo de batalha Pokémon por turnos. Nasceu como um exercício de Python puro, sem framework, sem biblioteca de jogo, sem sprite: o ponto do projeto era reproduzir com fidelidade a fórmula de dano e a tabela de efetividade de tipos dos jogos oficiais da Nintendo, com o cálculo acontecendo de verdade a cada turno. Isso ainda é verdade pro **modo texto** (`main.py`).
 
-O projeto ganhou depois um **modo gráfico** (`main_gui.py`) bem mais ambicioso: interface em Tkinter, sprites de verdade baixados da PokeAPI, o Pokédex inteiro em vez de um roster fixo, times de até 6 Pokémon, IV/EV/natureza de verdade, habilidades com efeito mecânico, XP/level up/evolução, uma sequência de 8 ginásios com insígnias, save em disco e animação de golpe na tela de batalha. Depois entraram mecânicas de combate mais fundas (prioridade, recuo, dreno de HP, golpes que sobem e descem atributo, clima, ataques carregados de dois turnos), uma PokéMart de verdade, personalização do treinador (nome, Pokémon inicial, apelido), dificuldade e personalidade de IA pros treinadores adversários, e um sisteminha de missões com NPCs fixos. Isso quebra o "zero dependência" original de propósito. Os dois modos convivem no mesmo repositório porque compartilham a mesma lógica de batalha (`pokebattle/battle.py`); só a interface (e o tanto de mecânica em cima) muda.
+O projeto ganhou depois um **modo gráfico** (`main_gui.py`) bem mais ambicioso: interface em Tkinter, sprites de verdade baixados da PokeAPI, o Pokédex inteiro em vez de um roster fixo, times de até 6 Pokémon, IV/EV/natureza de verdade, habilidades com efeito mecânico, XP/level up/evolução, uma sequência de 8 ginásios com insígnias, save em disco e animação de golpe na tela de batalha. Depois entraram mecânicas de combate mais fundas (prioridade, recuo, dreno de HP, golpes que sobem e descem atributo, clima, ataques carregados de dois turnos), uma PokéMart de verdade, personalização do treinador (nome, Pokémon inicial, apelido), dificuldade e personalidade de IA pros treinadores adversários, e um sisteminha de missões com NPCs fixos. Isso quebra o "zero dependência" original de propósito. Numa leva mais recente entraram modo torneio, PvP local, itens segurados, mega evolução, troca entre saves, som, avatar do treinador, replay de batalha, treino de EV, IA adaptativa, exportar/importar time, uma terceira interface web (Flask) reaproveitando o roster fixo, Pokémon shiny, mais habilidades com efeito real, conquistas, modo Nuzlocke e CI no GitHub Actions — tudo detalhado mais abaixo. Os modos convivem no mesmo repositório porque compartilham a mesma lógica de batalha (`pokebattle/battle.py`); só a interface (e o tanto de mecânica em cima) muda.
 
 ## Modo texto (`main.py`): o simulador original
 
@@ -88,7 +90,41 @@ A tela de Pokédex lista todo Pokémon da API com a mesma busca da tela de time,
 
 A tela de Missões junta 6 NPCs fixos, cada um com uma fala curta e um objetivo simples: vencer um número de batalhas, registrar um número de espécies na Pokédex, ou vencer um ginásio específico. O progresso de cada missão é calculado direto do que já está no save (número de vitórias, tamanho da Pokédex vista, insígnias conquistadas), sem precisar guardar nada duplicado. Completar uma libera um botão de "Reivindicar" que paga a recompensa em dinheiro na hora e marca a missão como cumprida.
 
-O modo texto (`main.py`) e o roster fixo de 41 Pokémon (`pokebattle/data.py`) continuam existindo do jeito que sempre existiram, sem precisar de internet nem das dependências novas. São o que os testes automatizados usam.
+### Avatar, som e barra de HP animada
+
+Junto da cor escolhida na tela de time (um círculo colorido com a inicial do nome — sem sprite de terceiro nenhum, do mesmo jeito que o resto do projeto nunca usa asset visual de fora da PokeAPI), o avatar aparece na tela de time e no painel de batalha do jogador (`pokebattle/avatar.py`). O modo gráfico ganhou som (`pokebattle/audio.py`): efeitos de golpe acertando, desmaio, vitória e um jingle de ginásio, todos sintetizados na hora com a biblioteca padrão (tons puros de onda senoidal, via `wave`) e cacheados em `.pokecache/audio/` — zero asset de terceiro, então zero problema de direito autoral, e tocados com `pygame.mixer` de um jeito à prova de ambiente sem placa de som (sem dispositivo, o jogo continua rodando em silêncio, nunca trava). A barra de HP deixou de saltar direto pro valor novo: agora ela anima em pequenos passos (tween) até o valor certo, mesmo padrão de `after()` que a animação de dano já usava.
+
+### Itens segurados, mega evolução e loja de Pokémon
+
+Um Pokémon pode segurar um item o tempo todo, com efeito mecânico durante a batalha inteira — diferente da Mochila, que é consumida manualmente num turno. Só um conjunto curado tem efeito real (`pokebattle/held_items.py`, no mesmo espírito de `abilities.py`): Leftovers cura 1/16 do HP máximo no fim do turno, Choice Band aumenta 50% o dano de golpes físicos, e berries curam um status específico sozinhas (ou qualquer um, no caso do Mirtilo Lum), se consumindo no processo. Segurar a Mega Stone certa (também um item segurado) mega evolui um punhado de espécies bem conhecidas — Charizard, Mewtwo, Gyarados, Lucario, Alakazam — no início da batalha; a mega evolução é temporária e reverte no fim, do jeito que os jogos fazem (`pokebattle/mega.py`). Os itens segurados são comprados na PokéMart e equipados na tela de time; a mesma loja ganhou uma seção de "Loja de Pokémon", onde um Pokémon aleatório de verdade entra pra sua coleção por um preço bem mais alto que qualquer item ($8000), guardado no save e disponível na tela de time pra entrar no time sem precisar buscar.
+
+### PvP local, torneio, treino de EV e IA adaptativa
+
+O PvP local (hot-seat) deixa dois jogadores no mesmo computador se enfrentarem sem rede nenhuma: cada um escolhe 1 Pokémon, e os dois escolhem golpe por turno numa tela que se alterna, com um intervalo de "passe o computador" entre um jogador e o outro. O modo torneio (`pokebattle/tournament.py`) monta um bracket de eliminação simples com o jogador e 3 rivais controlados por IA; as partidas do jogador acontecem na tela de batalha de sempre, e as que não envolvem o jogador são simuladas na hora, turno a turno, reaproveitando `Battle` e a mesma `ai.choose_move` que já decide o golpe dos treinadores adversários. O treino de EV deixa gastar itens como Proteína e Ferro num Pokémon do time atual pra reforçar um stat específico, em vez de só ganhar EV passivamente ao vencer batalha — isso usa o Pokémon já montado da sessão, então só funciona depois de começar pelo menos uma batalha. E a IA dos treinadores fora de ginásio deixou de sortear a personalidade só uniformemente: agora ela pesa pela taxa de vitória/derrota do jogador salva no save (`ai.adaptive_personality`), favorecendo um perfil mais estratégico quando o jogador está mandando bem e um mais brando quando está apanhando bastante.
+
+### Troca, exportar/importar time e replay
+
+Dá pra trocar um Pokémon com um amigo exportando ele pra um arquivo (`pokebattle/trade.py`) e mandando por fora — sem precisar sincronizar dois `savegame.json` ao mesmo tempo. O time inteiro também pode ser exportado/importado como texto, num formato parecido com o do Pokémon Showdown (`pokebattle/teamcodec.py`), pra compartilhar uma build sem mandar o save inteiro. E toda batalha jogada até o fim salva um replay em JSON (`pokebattle/replay.py`, pasta `replays/`, fora do git) — uma tela própria lista os replays salvos e reproduz o log turno a turno.
+
+### Shiny, mais habilidades e conquistas
+
+Todo Pokémon montado no modo gráfico tem 1/4096 de chance de ser shiny (a mesma raridade dos jogos principais modernos), com a variante de sprite da própria PokeAPI e destaque visual (✨ e nome dourado) na tela de batalha. O conjunto curado de habilidades com efeito mecânico cresceu: Wonder Guard (só toma dano de golpe super efetivo), Speed Boost (sobe Velocidade sozinho no fim de cada turno), Sand Veil (reduz a precisão de quem ataca na tempestade de areia), Water Absorb/Volt Absorb (imunidade ao tipo + cura) e Poison Heal (cura em vez de sofrer o dano residual do veneno). E um sistema de conquistas (`pokebattle/achievements.py`) desbloqueia sozinho — sem botão de resgatar, diferente das missões — em marcos como vencer sem perder ninguém, completar a Pokédex, vencer os 8 ginásios, encontrar o primeiro shiny ou ser campeão de um torneio.
+
+### Ambiente por local de batalha e modo Nuzlocke
+
+Cada arena pode favorecer um tipo, tratado como um "clima fixo" que não expira sozinho (`pokebattle/locations.py`): vulcão favorece Fogo, lago favorece Água, caverna/deserto favorecem Pedra/Terra/Aço, geleira favorece Gelo. Ginásios de tipo óbvio já nascem numa arena correspondente (o de Blaine no vulcão, o de Misty no lago), e batalhas comuns sorteiam um local a cada vez (a maioria continua em campo aberto, sem efeito nenhum). O modo Nuzlocke, opcional (checkbox na tela de time), muda uma regra só: quem desmaia numa batalha é removido permanentemente do time, e Revive para de funcionar — sem mexer em nada da lógica de batalha em si.
+
+O modo texto (`main.py`) e o roster fixo de 41 Pokémon (`pokebattle/data.py`) continuam existindo do jeito que sempre existiram, sem precisar de internet nem das dependências novas. São o que os testes automatizados usam — e também a base da versão web, abaixo.
+
+## Modo web (`web/app.py`): a mesma lógica, de novo, numa terceira interface
+
+```bash
+pip install -r requirements.txt
+python3 web/app.py
+# abre http://127.0.0.1:5000 no navegador
+```
+
+Servidor Flask reaproveitando **exatamente** o roster fixo de `pokebattle/data.py` e a classe `Battle` de `pokebattle/battle.py` — a mesma lógica pura dos outros dois modos, zero duplicação. É a terceira prova de que separar lógica de interface valeu a pena: primeiro apareceu o modo gráfico reaproveitando a `Battle` do modo texto, agora aparece uma interface web reaproveitando a mesma `Battle` de novo, dessa vez com HTTP em vez de Tkinter ou terminal. Cada partida fica guardada em memória de processo, por sessão (cookie) — não em banco nem em disco, então reiniciar o servidor zera as partidas em andamento; é um app de demonstração local, não pensado pra escala. Os templates (`web/templates/`) usam a mesma paleta de cor do modo gráfico, pra parecer a mesma família visual apesar da interface totalmente diferente.
 
 ## Rodando os testes
 
@@ -97,13 +133,17 @@ pip install -r requirements.txt
 python3 -m pytest -v
 ```
 
-São 148 testes automatizados, todos sobre lógica pura (não tocam na PokeAPI nem abrem janela nenhuma): a tabela de tipos, a fórmula de dano (imunidade, erro, STAB e crítico), os efeitos de status, as regras de turno da batalha (troca, item, fuga, prioridade, recuo, dreno, mudança de atributo, clima, ataque carregado, habilidades reagindo a golpes), o cálculo de stats com IV/EV/natureza, o save em disco, a progressão pós-batalha (XP, level up, evolução), os ginásios, os itens da loja, a IA dos treinadores (dificuldade cruzada com personalidade) e as missões. Tem também um script de fumaça manual pro modo gráfico (`tests/manual_gui_smoke.py`, roda com `xvfb-run -a python3 tests/manual_gui_smoke.py` num Linux sem tela): ele abre de verdade a janela e navega pelas telas (batalha, seleção de time, Pokédex, ginásio, loja, missões, onboarding de nome/inicial/apelido, progressão pós-vitória) com dados falsos, pra pegar erro de layout ou exceção antes de jogar. Não entra na suíte do pytest porque abre janela de verdade.
+São 265 testes automatizados, todos sobre lógica pura (não tocam na PokeAPI nem abrem janela nenhuma, e a versão web é testada com `app.test_client()` do Flask, que também não abre socket de verdade): a tabela de tipos, a fórmula de dano (imunidade, erro, STAB e crítico), os efeitos de status, as regras de turno da batalha (troca, item, fuga, prioridade, recuo, dreno, mudança de atributo, clima fixo de local, ataque carregado, habilidades reagindo a golpes, itens segurados), o cálculo de stats com IV/EV/natureza, o save em disco, a progressão pós-batalha (XP, level up, evolução), os ginásios, os itens da loja, a IA dos treinadores (dificuldade cruzada com personalidade, e a variante adaptativa), as missões, as conquistas, o modo Nuzlocke, a mega evolução, o bracket de torneio, exportar/importar time e troca, e as rotas da versão web. Tem também um script de fumaça manual pro modo gráfico (`tests/manual_gui_smoke.py`, roda com `xvfb-run -a python3 tests/manual_gui_smoke.py` num Linux sem tela, ou direto num Windows/Mac com tela de verdade): ele abre a janela de verdade e navega pelas telas (batalha, seleção de time, Pokédex, ginásio, loja, missões, onboarding, progressão pós-vitória, PvP local, torneio, Nuzlocke, mega evolução, conquistas, treino de EV, replay, avatar, troca) com dados falsos, pra pegar erro de layout ou exceção antes de jogar. Não entra na suíte do pytest porque abre janela de verdade.
 
 ## Arquitetura
 
 ```
 main.py                  # casca do modo texto (só print()/input())
 main_gui.py               # casca do modo gráfico (janela Tkinter)
+web/
+  app.py                 # casca da versão web (Flask), reaproveita data.py + battle.py
+  templates/             # choose.html, battle.html, base.html (Jinja2)
+  static/style.css       # mesma paleta de cor do modo gráfico
 pokebattle/
   types_chart.py         # tabela de efetividade (dados puros)
   moves.py                # classe Move (golpe): dano, status, prioridade, dreno, atributo, clima, carga
@@ -111,43 +151,70 @@ pokebattle/
   natures.py              # as 25 naturezas oficiais e o multiplicador de 10% que cada uma dá
   status.py               # efeitos de status: aplicar, checar se pode agir, dano residual
   abilities.py            # conjunto curado de habilidades com efeito mecânico de verdade
-  battle.py               # calculate_damage() e a classe Battle: turnos, troca, item, fuga, clima
-  ai.py                   # escolha de golpe do treinador adversário por dificuldade e personalidade
-  items.py                # catálogo da PokéMart e a lógica de usar cada item
+  held_items.py           # itens segurados: Leftovers, Choice Band, berries que curam status
+  mega.py                  # mega evolução curada a um punhado de espécies, ativada por item segurado
+  locations.py            # arenas com "clima fixo" (vulcão, lago, caverna, geleira)
+  nuzlocke.py              # regra pura do modo Nuzlocke (quem sobrevive, Revive desabilitado)
+  achievements.py          # catálogo de conquistas, desbloqueadas sozinhas a partir do save
+  tournament.py            # bracket de eliminação simples + simulação de partida IA-vs-IA
+  teamcodec.py             # exportar/importar time como texto (formato tipo Showdown)
+  trade.py                 # exportar/importar um único Pokémon pra troca entre saves
+  avatar.py                 # paleta/inicial do avatar do treinador (o desenho fica no main_gui.py)
+  audio.py                  # síntese e cache dos efeitos sonoros (sem asset de terceiro)
+  replay.py                 # grava/lê o log de uma batalha turno a turno, em JSON
+  battle.py               # calculate_damage() e a classe Battle: turnos, troca, item, fuga, clima, local
+  ai.py                   # escolha de golpe por dificuldade/personalidade + personalidade adaptativa
+  items.py                # catálogo da PokéMart (cura, EV) e a lógica de usar cada item
   quests.py               # NPCs fixos com missão, progresso e recompensa
   progression.py          # XP, EV ganho em batalha, level up, aprender golpe, evolução
-  save.py                 # save em JSON: Pokédex vista, insígnias, dinheiro, itens, nome, missões
-  gyms.py                 # sequência fixa de ginásios (líder, time, insígnia, recompensa, personalidade)
-  data.py                 # roster fixo (41 Pokémon, só dano) + seletor por letra do modo texto
+  save.py                 # save em JSON: Pokédex, insígnias, dinheiro, itens, conquistas, Nuzlocke...
+  gyms.py                 # sequência fixa de ginásios (líder, time, insígnia, recompensa, personalidade, local)
+  data.py                 # roster fixo (41 Pokémon, só dano) + seletor por letra do modo texto/web
   ui.py                   # barra de HP e banners de texto do modo texto
   pokeapi.py              # cliente da PokeAPI com cache em disco
-  roster.py               # monta um Pokemon a partir da PokeAPI (stats, golpes e habilidade reais)
-  sprites.py              # baixa e cacheia a ilustração de um Pokémon
+  roster.py               # monta um Pokemon a partir da PokeAPI (stats, golpes, habilidade, shiny)
+  sprites.py              # baixa e cacheia a ilustração de um Pokémon (normal e shiny)
 tests/
   test_types_chart.py
   test_damage.py
   test_battle.py
   test_battle_mechanics.py # prioridade, dreno, atributo, clima, ataque carregado
+  test_battle_hooks.py     # itens segurados e clima fixo de local dentro da Battle
   test_data.py            # roster e o seletor por letra do modo texto
   test_status.py          # efeitos de status isolados
   test_team_battle.py     # time, troca, item e fuga na Battle
   test_natures_and_stats.py
-  test_abilities.py
+  test_abilities.py       # inclui Wonder Guard, Speed Boost, Sand Veil, absorção de tipo, Poison Heal
+  test_roster.py          # shiny (1/4096) e overrides de IV/natureza do build_pokemon
   test_roster_ability.py
   test_roster_moves.py    # extração de prioridade/dreno/atributo/clima/carga da PokeAPI
   test_pokeapi.py
   test_save.py
   test_progression.py
-  test_gyms.py
-  test_ai.py              # escolha de golpe por dificuldade e personalidade
-  test_items.py           # catálogo e uso de item da PokéMart
+  test_gyms.py            # inclui o local de cada ginásio
+  test_ai.py              # escolha de golpe por dificuldade/personalidade + personalidade adaptativa
+  test_items.py           # catálogo, uso de item da PokéMart e itens de treino de EV
+  test_held_items.py
+  test_mega.py
+  test_locations.py
+  test_nuzlocke.py
+  test_achievements.py
+  test_tournament.py
+  test_teamcodec.py
+  test_trade.py
+  test_avatar.py
+  test_audio.py
+  test_replay.py
   test_quests.py          # progresso e resgate de missão
+  test_web.py              # rotas da versão web, via app.test_client() do Flask
   manual_gui_smoke.py     # script manual (não é pytest) pra testar as telas do modo gráfico
 ```
 
 `battle.py` continua sem nenhum `print()` ou `input()` de propósito: dá pra testar a fórmula de dano e as regras de turno chamando as funções direto, sem precisar simular teclado nem abrir janela. Os testes de `test_damage.py` e `test_status.py`, por exemplo, usam RNGs falsos (`FixedRNG`/`StubRNG`) que trocam o `random` de verdade por valores fixos, pra conseguir afirmar coisas como "um golpe paralisado às vezes não consegue agir" sem depender de sorte na hora de rodar o teste.
 
-`pokeapi.py` e `roster.py` ficam separados de `data.py` de propósito: um lado é o roster estático que não depende de rede, o outro é a integração com a PokeAPI que alimenta o modo gráfico. `progression.py`, `save.py`, `gyms.py`, `items.py` e `quests.py` também ficam de fora de `battle.py` de propósito: são coisas que só fazem sentido no modo gráfico (o modo texto não tem save, loja, ginásio nem missão), então misturar isso na lógica pura de turno só complicaria o que o modo texto usa. `status.py` não importa nada do resto do pacote (só recebe os objetos `Pokemon` já prontos), o que evita dependência circular com `pokemon.py` (que importa as constantes de status pra calcular ataque/velocidade efetivos). `ai.py` segue o mesmo raciocínio: importa só `types_chart.py`, não sabe nada de Tkinter nem de save, e devolve o `Move` escolhido pra quem chamou decidir o que fazer com ele.
+`pokeapi.py` e `roster.py` ficam separados de `data.py` de propósito: um lado é o roster estático que não depende de rede, o outro é a integração com a PokeAPI que alimenta o modo gráfico e a web. `progression.py`, `save.py`, `gyms.py`, `items.py` e `quests.py` também ficam de fora de `battle.py` de propósito: são coisas que só fazem sentido no modo gráfico (o modo texto não tem save, loja, ginásio nem missão), então misturar isso na lógica pura de turno só complicaria o que o modo texto usa. `status.py` não importa nada do resto do pacote (só recebe os objetos `Pokemon` já prontos), o que evita dependência circular com `pokemon.py` (que importa as constantes de status pra calcular ataque/velocidade efetivos). `ai.py` segue o mesmo raciocínio: importa só `types_chart.py`, não sabe nada de Tkinter nem de save, e devolve o `Move` escolhido pra quem chamou decidir o que fazer com ele.
+
+A leva mais recente de módulos segue o mesmo molde: `held_items.py`, `locations.py`, `nuzlocke.py` e `achievements.py` são hooks aditivos que `battle.py`/`main_gui.py` chamam, mas que não mudam nada do comportamento já testado quando não se aplicam (um Pokémon sem item segurado, uma batalha sem local especial). `mega.py` reaproveita `roster._STAT_KEYS` do mesmo jeito que `progression.evolve_pokemon` já fazia, porque mega evoluir é, mecanicamente, o mesmo tipo de operação (trocar tipo/stats a partir de dados já buscados). `tournament.py` só entende "nomes de participante" no bracket em si — quem é o jogador e quem é IA fica por conta de `main_gui.py` — pra poder testar o avanço de fase sem precisar montar Pokémon de verdade. `teamcodec.py` e `trade.py` compartilham a mesma "ficha" de Pokémon (um dict só com tipos primitivos), porque exportar um time inteiro e trocar um único Pokémon são, no fundo, a mesma serialização aplicada a tamanhos diferentes. `audio.py` sintetiza os próprios efeitos sonoros com a biblioteca padrão em vez de embutir um asset de terceiro, e todo o caminho de reprodução é protegido por try/except — sem isso, o CI (que roda sem placa de som) quebraria.
 
 ## O que eu treinei com esse projeto
 
@@ -157,6 +224,8 @@ Na parte nova, treinei consumir uma API HTTP de verdade com cache em disco (pra 
 
 Na leva mais recente, `items.py` e `quests.py` repetem o molde de `abilities.py`: uma lista fixa de dataclasses e algumas funções puras em cima dela, fácil de testar sem depender de nada externo. A novidade foi escrever a primeira heurística de decisão do projeto (`ai.py`): em vez de só calcular dano, precisei pensar em quando um treinador troca de estratégia (HP baixo, personalidade defensiva) e como comparar golpes por dano esperado em vez de poder bruto.
 
+Na leva mais recente de todas, o destaque foi `web/app.py`: montar uma terceira interface HTTP em cima da mesma `Battle` provou de novo que a separação lógica/interface do início do projeto continua compensando, dessa vez com o estado da partida guardado em memória por sessão (cookie) em vez de objeto Python direto na tela. `tournament.py` foi a primeira vez que precisei simular uma batalha inteira sem interface nenhuma no meio (turno a turno, os dois lados por IA, até sobrar um vencedor), o que também me ensinou a tratar o caso de borda de um bracket parcialmente resolvido sem estourar índice. E `audio.py` foi um jeito diferente de resolver "preciso de um asset": em vez de baixar ou empacotar um arquivo de som de verdade, sintetizei tons puros com a biblioteca padrão (`wave` + seno), o que resolve o problema de direito autoral de vez e ainda cacheia como qualquer outro asset gerado do projeto.
+
 ## Próximos passos possíveis
 
-Esse projeto é o primeiro de uma trilogia Pokémon que pretendo montar: a tabela de efetividade e a lógica de dano daqui já reaparecem no Team Builder e Analisador de Vantagens (o segundo da trilogia), que cruza os tipos de um time inteiro em vez de 1x1. Pra esse simulador especificamente, boa parte da lista de ideias antigas (golpes de status, seletor com filtro ao vivo, times maiores, save, ginásios, clima, loja, IA com personalidade, missões) já saiu do papel; o que ainda fica de fora é um modo torneio (várias rodadas até um campeão), efeito de ambiente por local de batalha (vulcão favorecendo Fogo, lago favorecendo Água), um avatar/roupa visual pro treinador, e uma loja de Pokémon de verdade em vez de só itens.
+Esse projeto é o primeiro de uma trilogia Pokémon que pretendo montar: a tabela de efetividade e a lógica de dano daqui já reaparecem no Team Builder e Analisador de Vantagens (o segundo da trilogia), que cruza os tipos de um time inteiro em vez de 1x1. Pra esse simulador especificamente, a lista de ideias antigas (golpes de status, seletor com filtro ao vivo, times maiores, save, ginásios, clima, loja, IA com personalidade, missões, torneio, local de batalha, avatar, loja de Pokémon, PvP local, itens segurados, mega evolução, troca, som, HP animado, replay, treino de EV, IA adaptativa, exportar/importar time, versão web, mais habilidades, shiny, conquistas, Nuzlocke, CI) já saiu do papel inteira. O que ainda fica de fora, pensando num próximo lote: mega evolução em formas alternativas regionais, um modo torneio com times maiores que 3 rivais, e sincronizar a versão web com o mesmo save.json do modo gráfico (hoje as duas partes de estado vivem separadas de propósito, cada uma na sua interface).

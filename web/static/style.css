@@ -1,0 +1,217 @@
+/* Mesma paleta de cor do modo gráfico (main_gui.py), pra parecer a mesma
+   família visual apesar da interface totalmente diferente (HTML em vez de
+   Tkinter). */
+:root {
+    --bg: #1f2733;
+    --panel-bg: #2b3648;
+    --fg: #f2f2f2;
+    --muted-fg: #9aa5b8;
+    --accent: #ffcb05;
+    --hp-green: #59c135;
+    --hp-yellow: #f2c14e;
+    --hp-red: #e34b4b;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+.page {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 32px 20px 60px;
+}
+
+.title {
+    text-align: center;
+    color: var(--accent);
+    margin-bottom: 24px;
+}
+
+.muted {
+    color: var(--muted-fg);
+    font-size: 0.9em;
+}
+
+.filter-form {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 12px;
+}
+
+.filter-form input {
+    background: var(--panel-bg);
+    border: 1px solid #4b5670;
+    color: var(--fg);
+    padding: 6px 10px;
+    border-radius: 6px;
+    width: 3em;
+    text-align: center;
+}
+
+.filter-form button,
+.clear-link {
+    background: var(--accent);
+    color: #1f2733;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.species-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.species-button {
+    background: var(--panel-bg);
+    color: var(--fg);
+    border: 1px solid #4b5670;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.95em;
+}
+
+.species-button:hover {
+    border-color: var(--accent);
+}
+
+.battle-panels {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    margin: 24px 0;
+}
+
+.panel {
+    background: var(--panel-bg);
+    border-radius: 10px;
+    padding: 16px;
+    flex: 1;
+    text-align: center;
+}
+
+.panel h2 {
+    margin: 0 0 10px;
+    font-size: 1.1em;
+}
+
+.level {
+    color: var(--muted-fg);
+    font-weight: normal;
+    font-size: 0.8em;
+}
+
+.hp-track {
+    background: #0d1117;
+    border: 1px solid #4b5670;
+    border-radius: 6px;
+    height: 14px;
+    overflow: hidden;
+}
+
+.hp-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.hp-fill.healthy {
+    background: var(--hp-green);
+}
+
+.hp-fill.hurt {
+    background: var(--hp-yellow);
+}
+
+.hp-fill.critical {
+    background: var(--hp-red);
+}
+
+.log {
+    background: #10151d;
+    border-radius: 8px;
+    padding: 12px 16px;
+    min-height: 120px;
+    max-height: 220px;
+    overflow-y: auto;
+    font-family: Consolas, monospace;
+    font-size: 0.9em;
+    margin-bottom: 20px;
+}
+
+.log p {
+    margin: 4px 0;
+}
+
+.move-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 8px;
+}
+
+.move-button {
+    background: var(--panel-bg);
+    color: var(--fg);
+    border: 1px solid #4b5670;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.95em;
+}
+
+.move-button:hover {
+    border-color: var(--accent);
+}
+
+.end-banner {
+    text-align: center;
+    font-size: 1.3em;
+    font-weight: 700;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.end-banner.victory {
+    color: var(--hp-green);
+}
+
+.end-banner.defeat {
+    color: var(--hp-red);
+}
+
+.primary {
+    display: block;
+    margin: 0 auto;
+    background: var(--accent);
+    color: #1f2733;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 1em;
+    cursor: pointer;
+}
+
+.footer-note {
+    text-align: center;
+    color: var(--muted-fg);
+    font-size: 0.8em;
+    margin-top: 40px;
+}

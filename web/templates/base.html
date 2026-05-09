@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Simulador de Batalha Pokémon{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="page">
+        <h1 class="title">Simulador de Batalha Pokémon</h1>
+        {% block content %}{% endblock %}
+        <p class="footer-note">Modo web — mesma lógica de pokebattle/battle.py dos modos texto e gráfico.</p>
+    </div>
+</body>
+</html>

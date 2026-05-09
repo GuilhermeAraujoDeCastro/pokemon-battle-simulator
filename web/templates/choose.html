@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<form method="get" class="filter-form">
+    <label>Filtrar por letra:
+        <input type="text" name="letter" maxlength="1" value="{{ letter }}" autofocus>
+    </label>
+    <button type="submit">Filtrar</button>
+    <a href="{{ url_for('choose') }}" class="clear-link">Ver todos</a>
+</form>
+
+<p class="muted">{{ species|length }} Pokémon disponíveis. Escolha o seu:</p>
+
+{% if species %}
+<form method="post" action="{{ url_for('start_battle') }}" class="species-grid">
+    {% for s in species %}
+    <button type="submit" name="species" value="{{ s }}" class="species-button">{{ display_name(s) }}</button>
+    {% endfor %}
+</form>
+{% else %}
+<p class="muted">Nenhum Pokémon começa com "{{ letter }}". Tenta outra letra.</p>
+{% endif %}
+{% endblock %}
