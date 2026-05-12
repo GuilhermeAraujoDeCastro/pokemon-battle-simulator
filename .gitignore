@@ -16,3 +16,5 @@ savegame.json
 # Replays de batalha salvos pelo jogador (pokebattle/replay.py) — também é
 # progresso de cada um, não do projeto.
 replays/
+
+.claude/

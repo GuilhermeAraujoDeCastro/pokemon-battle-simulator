@@ -19,6 +19,7 @@ andamento. É um app de demonstração local, não pensado pra escala nem pra
 múltiplos processos.
 """
 
+import os
 import random
 import sys
 import uuid
@@ -41,6 +42,8 @@ app.secret_key = uuid.uuid4().hex
 # Partidas em andamento, por id de sessão — um dict em memória é suficiente
 # pra um app de demonstração local (ver docstring do módulo).
 _GAMES: dict[str, dict[str, Any]] = {}
+# Teto de partidas guardadas: sem isso o dict so cresce enquanto o servidor estiver no ar.
+_MAX_GAMES = 500
 
 
 def _session_id() -> str:
@@ -76,6 +79,8 @@ def start_battle():
     enemy = create_pokemon(random.choice(list_species()))
     battle = Battle(player, enemy)
 
+    if len(_GAMES) >= _MAX_GAMES:
+        _GAMES.pop(next(iter(_GAMES)))  # descarta a partida mais antiga
     _GAMES[_session_id()] = {
         "battle": battle,
         "player": player,
@@ -106,9 +111,12 @@ def battle_move():
     if not battle.is_over:
         try:
             move_index = int(request.form.get("move_index", -1))
-            player_move = game["player"].moves[move_index]
-        except (ValueError, IndexError):
+        except ValueError:
             return redirect(url_for("battle_view"))
+        # Indice negativo tambem e valido em lista Python (-1 = ultimo golpe), entao barra na mao.
+        if not 0 <= move_index < len(game["player"].moves):
+            return redirect(url_for("battle_view"))
+        player_move = game["player"].moves[move_index]
 
         enemy_move = random.choice(game["enemy"].moves)
         game["log"].extend(battle.execute_turn(player_move, enemy_move))
@@ -122,4 +130,5 @@ def battle_reset():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Debug do Flask so com FLASK_DEBUG=1: o console dele executa codigo e nao pode ficar ligado por padrao.
+    app.run(debug=os.environ.get("FLASK_DEBUG") == "1")

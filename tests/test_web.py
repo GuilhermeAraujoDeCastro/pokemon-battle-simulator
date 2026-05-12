@@ -81,3 +81,13 @@ def test_move_index_out_of_range_is_ignored_not_crashed():
     client.post("/choose", data={"species": "pikachu"})
     response = client.post("/battle/move", data={"move_index": "99"})
     assert response.status_code == 302  # não quebra, só redireciona de volta
+
+
+def test_negative_move_index_does_not_play_the_last_move():
+    client = make_client()
+    client.post("/choose", data={"species": "pikachu"})
+    with client.session_transaction() as flask_session:
+        sid = flask_session["sid"]
+    log_antes = list(_GAMES[sid]["log"])
+    client.post("/battle/move", data={"move_index": "-1"})
+    assert _GAMES[sid]["log"] == log_antes  # -1 nao pode virar "ultimo golpe" e jogar um turno
