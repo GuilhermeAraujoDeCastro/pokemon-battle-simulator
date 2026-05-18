@@ -12,7 +12,7 @@ serialização aplicada a 1 ou a 6 Pokémon.
 
 import random
 import re
-from typing import Any, Optional
+from typing import Any
 
 from . import roster
 

@@ -44,13 +44,6 @@ ACHIEVEMENTS: list[Achievement] = [
                 GOAL_FLAG, "nuzlocke_win"),
 ]
 
-_BY_ID = {achievement.id: achievement for achievement in ACHIEVEMENTS}
-
-
-def get_achievement(achievement_id: str) -> Achievement:
-    return _BY_ID[achievement_id]
-
-
 def is_unlocked(achievement: Achievement, save_data: dict[str, Any]) -> bool:
     return achievement.id in save_data.get("achievements_unlocked", [])
 

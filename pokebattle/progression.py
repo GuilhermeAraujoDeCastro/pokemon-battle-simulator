@@ -1,6 +1,6 @@
 """Progressão pós-batalha do modo gráfico: XP, EV, level up, golpe novo e
-evolução. Fica fora de battle.py de propósito — o modo texto não usa nada
-disso, é só o modo gráfico que chama essas funções depois que alguém vence.
+evolução. Fica fora de battle.py porque só o modo gráfico usa: a versão web não tem
+progressão.
 """
 
 from typing import Optional

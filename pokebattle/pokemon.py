@@ -3,9 +3,8 @@
 Os stats finais usam a fórmula completa dos jogos oficiais: nível, base
 stat, IV (0-31, "talento" individual) e EV (pontos ganhos batalhando), mais
 o multiplicador de 10% pra cima/pra baixo da natureza. Quem não passar
-ivs/evs/nature na criação (o roster fixo do modo texto, os testes) ganha
-IV 0, EV 0 e natureza neutra — exatamente os números "base" de antes, sem
-mudar nenhum resultado já testado.
+ivs/evs/nature na criação (o roster fixo da versão web) ganha IV 0, EV 0 e
+natureza neutra.
 """
 
 from typing import Optional

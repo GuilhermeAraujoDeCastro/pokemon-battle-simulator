@@ -71,10 +71,6 @@ def add_badge(gym_id: str) -> dict[str, Any]:
     return data
 
 
-def has_badge(gym_id: str) -> bool:
-    return gym_id in load()["badges"]
-
-
 def set_trainer_name(name: str) -> dict[str, Any]:
     data = load()
     data["trainer_name"] = name

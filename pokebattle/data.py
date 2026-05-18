@@ -1,6 +1,5 @@
-"""Roster do jogo: Pokémon (nível 50) com base stats e movesets reais dos
-jogos, prontos pra batalha. Sem sprites nem imagens — o projeto é 100%
-texto, então não usa nenhum asset visual da franquia.
+"""Roster fixo da versão web: Pokémon (nível 50) com base stats e movesets
+reais dos jogos, prontos pra batalha e sem depender da PokeAPI.
 
 Todo golpe listado aqui é um golpe de dano direto de verdade (nome, tipo,
 poder e precisão reais), mas nenhum reproduz efeito secundário, status,

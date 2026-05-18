@@ -41,8 +41,6 @@ CATALOG: list[Item] = [
     Item("carbos", "Carboidrato", 2000, "Treino: +10 EV de Velocidade.", ev_stat="speed", ev_amount=10),
 ]
 
-EV_ITEM_IDS = frozenset(item.id for item in CATALOG if item.ev_stat)
-
 _BY_ID = {item.id: item for item in CATALOG}
 
 

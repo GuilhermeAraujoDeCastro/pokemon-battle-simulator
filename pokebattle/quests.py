@@ -63,13 +63,6 @@ QUESTS: list[Quest] = [
     ),
 ]
 
-_BY_ID = {quest.id: quest for quest in QUESTS}
-
-
-def get_quest(quest_id: str) -> Quest:
-    return _BY_ID[quest_id]
-
-
 def progress_for(quest: Quest, save_data: dict[str, Any]) -> int:
     """Progresso atual do jogador nessa missão. Pra "vencer ginásio X" isso
     vira 0 ou 1 (não tem meio-termo)."""

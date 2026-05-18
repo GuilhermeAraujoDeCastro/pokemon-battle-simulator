@@ -2,11 +2,8 @@
 troca, fuga e os efeitos de status (queimadura, veneno, paralisia,
 congelamento, sono e confusão).
 
-De propósito, esse módulo não faz nenhum print() nem input() — quem cuida
-da tela e da entrada do jogador é o main.py (modo texto) ou o main_gui.py
-(modo gráfico). Isso é o que permite testar a fórmula de dano e as regras de
-turno sem precisar simular teclado, e é a mesma separação (lógica x
-interface) que vale a pena levar pra qualquer projeto maior.
+Não desenha nada nem lê teclado: a tela fica com o main_gui.py (Tkinter) e
+com o web/app.py (Flask), que usam esta mesma classe.
 """
 
 import random
@@ -102,7 +99,6 @@ class Battle:
         self.player_active = 0
         self.enemy_active = 0
         self.rng = rng
-        self.turn_count = 0
         self.fled = False
         # `location` é opcional (ver pokebattle/locations.py): só precisa ter
         # um atributo `.weather`. Quando presente, vira um "clima fixo" da
@@ -219,7 +215,6 @@ class Battle:
         usar um item consome o turno do jogador, mas o oponente ainda ataca
         em seguida — só fugir encerra a batalha na hora.
         """
-        self.turn_count += 1
         kind, payload = player_action
         log: list[str] = []
 

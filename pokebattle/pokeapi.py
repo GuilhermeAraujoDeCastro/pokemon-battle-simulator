@@ -90,11 +90,6 @@ def get_species(name_or_id) -> dict[str, Any]:
     return _get(f"{BASE_URL}/pokemon-species/{key}")
 
 
-def get_ability(name: str) -> dict[str, Any]:
-    key = name.lower().strip()
-    return _get(f"{BASE_URL}/ability/{key}")
-
-
 def get_by_url(url: str) -> dict[str, Any]:
     """Busca um recurso pela URL completa que outra resposta da API já deu
     (ex: species["evolution_chain"]["url"]) — evita remontar o endpoint."""

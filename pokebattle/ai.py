@@ -26,11 +26,6 @@ DIFFICULTIES = ["easy", "normal", "hard"]
 DIFFICULTY_LABELS = {"easy": "Fácil", "normal": "Normal", "hard": "Difícil"}
 
 PERSONALITIES = ["aggressive", "defensive", "strategic"]
-PERSONALITY_LABELS = {
-    "aggressive": "Agressivo",
-    "defensive": "Defensivo",
-    "strategic": "Estratégico",
-}
 
 _LOW_HP_RATIO = 0.4  # abaixo disso, o perfil defensivo troca ataque por golpe de status
 

@@ -41,16 +41,6 @@ def get_location(location_id: str) -> Location:
     return _BY_ID[location_id]
 
 
-def location_for_type(pokemon_type: str) -> Optional[Location]:
-    """Arena "natural" pra um tipo, usada pra combinar ginásio com local
-    (ex: ginásio de Fogo acontece no Vulcão). None se não tiver uma óbvia."""
-    by_type = {
-        "fire": "volcano", "water": "lake", "rock": "cave", "ground": "cave", "ice": "glacier",
-    }
-    location_id = by_type.get(pokemon_type)
-    return _BY_ID[location_id] if location_id else None
-
-
 def random_location(rng=random) -> Location:
     ids = list(_RANDOM_WEIGHTS.keys())
     weights = list(_RANDOM_WEIGHTS.values())

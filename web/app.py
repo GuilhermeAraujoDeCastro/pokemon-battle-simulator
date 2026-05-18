@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 """Simulador de Batalha Pokémon — versão web (Flask).
 
-Reaproveita exatamente a mesma lógica pura do modo texto: o roster fixo de
-41 Pokémon (pokebattle/data.py, zero dependência de rede) e a classe Battle
-(pokebattle/battle.py) — a mesma que main.py e main_gui.py já usam. Só a
-interface é nova: em vez de print()/input() ou uma janela Tkinter, é HTTP
-com Flask. É a mesma separação lógica/interface que o projeto já leva a
-sério, aplicada numa terceira interface.
+Usa o roster fixo de 41 Pokémon (pokebattle/data.py, sem depender de rede) e
+a mesma classe Battle (pokebattle/battle.py) do modo gráfico. Só a interface
+muda: em vez de uma janela Tkinter, é HTTP com Flask.
 
 Como jogar:
     pip install -r requirements.txt   # já inclui o Flask

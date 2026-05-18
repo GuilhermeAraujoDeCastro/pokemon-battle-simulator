@@ -2,10 +2,9 @@
 escolhendo golpes de verdade — incluindo golpes de status — em vez de usar o
 roster fixo de pokebattle/data.py.
 
-Fica separado de data.py de propósito: data.py continua sendo o roster
-estático (41 Pokémon, só dano direto) que o modo texto (main.py) e os testes
-usam sem precisar de internet; esse módulo é o que alimenta o modo gráfico
-(main_gui.py), que depende da PokeAPI pra ter acesso a todos os Pokémon.
+Fica separado de data.py: data.py é o roster estático (41 Pokémon, só dano
+direto) da versão web; este módulo alimenta o modo gráfico (main_gui.py), que
+depende da PokeAPI pra ter todos os Pokémon.
 """
 
 import random
@@ -68,15 +67,6 @@ def list_all_species() -> list[str]:
 def list_all_species_with_dex_numbers() -> list[tuple[int, str]]:
     """Todos os Pokémon com o número da Pokédex — usado pela tela de Pokédex."""
     return pokeapi.list_all_species_with_dex_numbers()
-
-
-def list_species_starting_with(letter: str, species: Optional[list[str]] = None) -> list[str]:
-    """Filtro por letra, igual ao de data.py, mas sobre a lista completa da API."""
-    all_species = species if species is not None else list_all_species()
-    letter = letter.strip().lower()
-    if not letter:
-        return all_species
-    return [s for s in all_species if s.lower().startswith(letter)]
 
 
 def _pick_ability(pokemon_data: dict) -> Optional[str]:
@@ -236,8 +226,8 @@ def build_pokemon(species: str, level: int = LEVEL, rng=random,
     com IVs aleatórios, natureza aleatória e o sprite em `pokemon.sprite_path`.
 
     Cada Pokémon do modo gráfico é um indivíduo (IV/natureza próprios), do
-    jeito que os jogos fazem — diferente do roster fixo do modo texto, que
-    usa IV/EV neutros de propósito (ver pokemon.py).
+    jeito que os jogos fazem. O roster fixo da versão web usa IV/EV neutros
+    (ver pokemon.py).
 
     `ivs`/`nature` deixam fixar os dois em vez de sortear — usado por
     teamcodec.py pra remontar um time importado com os stats exatos do

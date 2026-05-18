@@ -4,12 +4,6 @@ A tabela guarda só as exceções à regra padrão (multiplicador 1x, "dano norm
 Cada chave é um tipo de ataque; o valor é um dicionário {tipo do defensor: multiplicador}.
 """
 
-TYPES = [
-    "normal", "fire", "water", "electric", "grass", "ice", "fighting",
-    "poison", "ground", "flying", "psychic", "bug", "rock", "ghost",
-    "dragon", "dark", "steel", "fairy",
-]
-
 _CHART = {
     "normal": {"rock": 0.5, "ghost": 0.0, "steel": 0.5},
     "fire": {"fire": 0.5, "water": 0.5, "grass": 2.0, "ice": 2.0, "bug": 2.0,
