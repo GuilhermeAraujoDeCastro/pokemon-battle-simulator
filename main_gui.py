@@ -7,11 +7,6 @@ internet na primeira vez que um Pokémon ou golpe aparece — depois disso ele
 fica salvo em cache local (pasta .pokecache/, criada do lado do projeto) e
 funciona sem rede.
 
-O modo texto original (main.py, roster fixo de 41 Pokémon, zero
-dependência) continua funcionando do jeito que sempre funcionou. Esse aqui é
-a evolução gráfica: troca "zero dependência" por Tkinter + requests + Pillow
-em troca de sprites de verdade, do Pokédex inteiro e de efeitos de status.
-
 Como jogar:
     python3 main_gui.py
 """
@@ -135,6 +130,10 @@ def run_in_background(app, work, on_done, on_error=None):
             return  # a janela foi fechada enquanto isso rodava — não faz nada
         if not result_box.get("done"):
             app.after(80, poll)
+            return
+        # A tela que pediu o trabalho pode ter sido trocada nesse meio-tempo.
+        tela = getattr(on_done, "__self__", None)
+        if isinstance(tela, tk.Misc) and not tela.winfo_exists():
             return
         if "error" in result_box:
             if on_error:
@@ -299,6 +298,7 @@ class PokeBattleApp(tk.Tk):
             self.show_frame(TeamSelectScreen)
 
     def show_frame(self, frame_cls, **kwargs):
+        audio.stop_music()  # o tema do ginásio não continua tocando depois da batalha
         for child in self.container.winfo_children():
             child.destroy()
         frame = frame_cls(self.container, self, **kwargs)
@@ -850,7 +850,6 @@ class PokedexScreen(tk.Frame):
         super().__init__(parent, bg=BG)
         self.app = app
         self.all_entries = None  # lista de (dex_id, species) depois de carregar
-        self.visible_entries = []
         self.seen = set(save.load()["pokedex_seen"])
 
         tk.Label(self, text="Pokédex", font=FONT_TITLE, bg=BG, fg=ACCENT).pack(pady=(24, 4))
@@ -899,7 +898,6 @@ class PokedexScreen(tk.Frame):
         self.status_label.config(text=f"{seen_count}/{total} vistos. Digite pra filtrar.")
 
     def _refresh_listbox(self, entries):
-        self.visible_entries = entries
         self.listbox.delete(0, tk.END)
         for dex_id, species in entries:
             mark = self.SEEN_MARK if species in self.seen else self.UNSEEN_MARK
@@ -1204,12 +1202,10 @@ class BattleScreen(tk.Frame):
         self.enemy_personality = gym.personality if gym else ai.adaptive_personality(save_data, rng=random)
 
         self._player_mega_evolved = False
-        self._enemy_mega_evolved = False
         if not self.pvp:
             player_mega_msg = mega.try_mega_evolve(self.battle.player)
             enemy_mega_msg = mega.try_mega_evolve(self.battle.enemy)
             self._player_mega_evolved = player_mega_msg is not None
-            self._enemy_mega_evolved = enemy_mega_msg is not None
         else:
             player_mega_msg = enemy_mega_msg = None
 

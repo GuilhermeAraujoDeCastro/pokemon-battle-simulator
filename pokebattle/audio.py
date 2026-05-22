@@ -98,7 +98,7 @@ def play(name: str) -> None:
 
 
 def play_music(name: str, loop: bool = True) -> None:
-    """Toca um tema em loop (ex: música de ginásio) até stop_music()."""
+    """Toca um tema em loop (ex: música de ginásio) até stop_music() ou a próxima troca de tela."""
     if not init():
         return
     path = get_sound_path(name)
