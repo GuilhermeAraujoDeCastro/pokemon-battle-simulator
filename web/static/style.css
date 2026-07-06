@@ -146,9 +146,7 @@ body {
     background: #10151d;
     border-radius: 8px;
     padding: 12px 16px;
-    min-height: 120px;
-    max-height: 220px;
-    overflow-y: auto;
+    min-height: 120px; /* o template já corta nas 14 últimas linhas, então cabe tudo sem rolagem */
     font-family: Consolas, monospace;
     font-size: 0.9em;
     margin-bottom: 20px;
