@@ -1,18 +1,12 @@
-# O modo texto (main.py) usa só a biblioteca padrão do Python 3.10+.
-# O pytest é necessário só pra rodar a suíte de testes:
-pytest>=7.0
-
-# O modo gráfico (main_gui.py) precisa dessas duas: requests fala com a
-# PokeAPI, Pillow abre/redimensiona os sprites baixados. Tkinter também é
-# usado, mas já vem com o Python (no Linux, se faltar, instale o pacote
-# "python3-tk" do seu sistema).
+# Modo gráfico (main_gui.py): requests fala com a PokeAPI e Pillow abre os
+# sprites baixados. O Tkinter já vem com o Python (no Linux, se faltar,
+# instale o pacote "python3-tk" do sistema).
 requests>=2.31
 Pillow>=10.0
 
-# Som no modo gráfico (pokebattle/audio.py). Opcional na prática: sem
-# dispositivo de áudio (ou sem essa lib), o jogo continua funcionando em
-# silêncio — nunca trava nem quebra por falta dela.
+# Som do modo gráfico (pokebattle/audio.py). Sem ele, ou sem placa de som,
+# o jogo roda em silêncio.
 pygame>=2.5
 
-# Só a versão web (web/app.py) precisa disso.
+# Versão web (web/app.py).
 Flask>=3.0
