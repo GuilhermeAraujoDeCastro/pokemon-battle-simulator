@@ -6,6 +6,7 @@ Não desenha nada nem lê teclado: a tela fica com o main_gui.py (Tkinter) e
 com o web/app.py (Flask), que usam esta mesma classe.
 """
 
+import math
 import random
 from dataclasses import dataclass
 from typing import Optional
@@ -47,9 +48,32 @@ WEATHER_RESIDUAL_IMMUNE = {
 WEATHER_DURATION = 5  # turnos, igual aos jogos sem habilidade que estenda
 
 
-def _base_power(level: float, power: int, atk_stat: int, def_stat: int) -> float:
-    """Núcleo da fórmula oficial de dano, antes de STAB/tipo/crítico/variação."""
-    return (((2 * level / 5 + 2) * power * atk_stat / def_stat) / 50) + 2
+def _base_power(level: int, power: int, atk_stat: int, def_stat: int) -> int:
+    """Núcleo da fórmula oficial de dano, antes de STAB/tipo/crítico/variação, com os
+    arredondamentos para baixo que o jogo faz a cada divisão (antes ficava tudo em float
+    e dava 1 ponto a mais em muitos casos: nível 46, poder 40, 30 x 37 dava 15 em vez de 14)."""
+    return (2 * int(level) // 5 + 2) * power * atk_stat // def_stat // 50 + 2
+
+
+def _arredondar(valor: float) -> int:
+    """Arredondamento dos modificadores no jogo: pro mais perto, com o .5 indo pra baixo."""
+    return math.ceil(valor - 0.5)
+
+
+def _stats_do_golpe(attacker, defender, move, is_crit: bool) -> tuple[int, int]:
+    """Ataque e defesa usados no golpe. No crítico o jogo ignora a queda de ataque de quem
+    bate e o aumento de defesa de quem apanha (o resto, como queimadura, continua valendo)."""
+    fisico = move.category == "physical"
+    atk_nome, def_nome = ("attack", "defense") if fisico else ("sp_atk", "sp_def")
+    salvo_a, salvo_d = attacker.stat_stages[atk_nome], defender.stat_stages[def_nome]
+    if is_crit:
+        attacker.stat_stages[atk_nome], defender.stat_stages[def_nome] = max(0, salvo_a), min(0, salvo_d)
+    try:
+        if fisico:
+            return attacker.effective_attack, defender.effective_defense
+        return attacker.effective_sp_atk, defender.effective_sp_def
+    finally:
+        attacker.stat_stages[atk_nome], defender.stat_stages[def_nome] = salvo_a, salvo_d
 
 
 def calculate_damage(attacker, defender, move, rng=random, weather=None) -> DamageResult:
@@ -65,17 +89,13 @@ def calculate_damage(attacker, defender, move, rng=random, weather=None) -> Dama
     if abilities.blocks_non_supereffective(defender, type_eff, move.category):
         return DamageResult(damage=0, hit=True, effectiveness=type_eff, is_crit=False)
 
-    if move.category == "physical":
-        atk_stat, def_stat = attacker.effective_attack, defender.effective_defense
-    else:
-        atk_stat, def_stat = attacker.effective_sp_atk, defender.effective_sp_def
-
+    # Regras da Geração VII em diante (a mesma da queimadura e da paralisia do projeto):
+    # crítico com chance de 1/24, decidido antes de pegar ataque e defesa.
+    is_crit = rng.random() < (1 / 24)
+    atk_stat, def_stat = _stats_do_golpe(attacker, defender, move, is_crit)
     base = _base_power(attacker.level, move.power, atk_stat, def_stat)
 
-    is_crit = rng.random() < (1 / 16)
     stab = 1.5 if move.type in attacker.types else 1.0
-    crit_mult = 1.5 if is_crit else 1.0
-    variance = rng.uniform(0.85, 1.0)
 
     weather_mult = 1.0
     if weather and move.type == _WEATHER_BOOST.get(weather):
@@ -85,7 +105,14 @@ def calculate_damage(attacker, defender, move, rng=random, weather=None) -> Dama
 
     item_mult = held_items.power_modifier(attacker, move)
 
-    damage = int(base * stab * type_eff * crit_mult * variance * weather_mult * item_mult)
+    # Mesma ordem e arredondamento do jogo: clima, crítico, variação (inteira, 85 a 100), STAB, tipo, item.
+    damage = _arredondar(base * weather_mult)
+    if is_crit:
+        damage = _arredondar(damage * 1.5)
+    damage = damage * rng.randint(85, 100) // 100
+    damage = _arredondar(damage * stab)
+    damage = int(damage * type_eff)
+    damage = _arredondar(damage * item_mult)
     damage = max(1, damage)
     return DamageResult(damage=damage, hit=True, effectiveness=type_eff, is_crit=is_crit)
 

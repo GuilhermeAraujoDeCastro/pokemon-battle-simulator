@@ -45,7 +45,7 @@ _IMMUNE_TYPES = {
     BURN: {"fire"},
     POISON: {"poison", "steel"},
     PARALYSIS: {"electric"},
-    FREEZE: {"ice", "fire"},
+    FREEZE: {"ice"},  # nos jogos é o tipo Gelo que não congela; Fogo congela normal
 }
 
 
@@ -92,10 +92,8 @@ def _confusion_self_damage(pokemon, rng) -> int:
     físico fixo de 40 de poder contra si mesmo, sem STAB, tipo ou crítico —
     é assim que o jogo oficial calcula esse dano.
     """
-    base = (
-        (2 * pokemon.level / 5 + 2) * 40 * pokemon.effective_attack / pokemon.defense
-    ) / 50 + 2
-    return max(1, int(base * rng.uniform(0.85, 1.0)))
+    base = (2 * int(pokemon.level) // 5 + 2) * 40 * pokemon.effective_attack // pokemon.defense // 50 + 2
+    return max(1, base * rng.randint(85, 100) // 100)
 
 
 def check_can_act(pokemon, rng=random) -> ActionCheck:

@@ -45,7 +45,7 @@ Um servidor Flask com o roster fixo de 41 Pokémon (`pokebattle/data.py`), que f
 
 ## A fórmula de dano
 
-O dano segue a fórmula dos jogos: nível do atacante, poder do golpe, Ataque contra Defesa (ou Ataque Especial contra Defesa Especial, conforme a categoria), bônus de 1,5x quando o golpe é do mesmo tipo do Pokémon, efetividade de tipo, crítico com chance de 1/16 e 1,5x de dano, e a variação aleatória de 85% a 100%. A tabela tem os 18 tipos, incluindo Fada, e vale para Pokémon de um ou dois tipos. Os stats saem da mesma conta dos jogos, a partir do nível, dos base stats, do IV, do EV e da natureza.
+O dano segue a fórmula dos jogos: nível do atacante, poder do golpe, Ataque contra Defesa (ou Ataque Especial contra Defesa Especial, conforme a categoria), bônus de 1,5x quando o golpe é do mesmo tipo do Pokémon, efetividade de tipo, crítico com chance de 1/24 e 1,5x de dano (ignorando queda de Ataque de quem bate e aumento de Defesa de quem apanha), e a variação aleatória de 85% a 100%, com os arredondamentos do jogo a cada etapa. As regras seguem a Geração VII em diante. A tabela tem os 18 tipos, incluindo Fada, e vale para Pokémon de um ou dois tipos. Os stats saem da mesma conta dos jogos, a partir do nível, dos base stats, do IV, do EV e da natureza.
 
 ## Estrutura
 

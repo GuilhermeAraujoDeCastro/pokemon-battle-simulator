@@ -167,7 +167,7 @@ def on_contact_defended(defender, attacker, move, rng=random) -> Optional[str]:
         return f"{defender.name} tem {display_name(ability)}! {message}"
 
     if ability == "rough-skin":
-        recoil = max(1, defender.max_hp // 8)
+        recoil = max(1, attacker.max_hp // 8)  # 1/8 do HP máximo de quem encostou
         attacker.take_damage(recoil)
         return f"Rough Skin feriu {attacker.name} em {recoil} de dano!"
 
