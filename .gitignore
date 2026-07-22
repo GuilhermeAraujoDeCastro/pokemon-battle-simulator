@@ -17,3 +17,10 @@ savegame.json
 replays/
 
 .claude/
+
+# Segredos, deploy e logs locais
+.env
+.env.*
+.ruff_cache/
+*.egg-info/
+*.log
