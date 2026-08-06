@@ -1,10 +1,22 @@
 # Simulador de Batalha Pokémon
 
-![Batalha na versão web](docs/capa.png)
+![Capa do Simulador de Batalha Pokémon](docs/capa.png)
+
+[![Verificação](https://github.com/GuilhermeAraujoDeCastro/pokemon-battle-simulator/actions/workflows/verificacao.yml/badge.svg)](https://github.com/GuilhermeAraujoDeCastro/pokemon-battle-simulator/actions/workflows/verificacao.yml)
 
 Jogo de batalha Pokémon por turnos em Python. O centro do projeto é reproduzir a fórmula de dano e a tabela de tipos dos jogos oficiais, com o cálculo feito de verdade a cada turno. A mesma lógica de batalha (`pokebattle/battle.py`) roda em duas interfaces: um modo gráfico completo em Tkinter e uma versão web mais simples em Flask.
 
-É o primeiro projeto da minha trilogia Pokémon. O segundo é o Team Builder e o terceiro é o Extrator de Dados.
+É o primeiro projeto da minha trilogia Pokémon. O segundo é o [Team Builder](https://github.com/GuilhermeAraujoDeCastro/pokemon-team-builder) e o terceiro é o [Analisador de Dados](https://github.com/GuilhermeAraujoDeCastro/pokemon-data-analyzer).
+
+## Telas
+
+| Montagem do time (Tkinter) | Batalha (Tkinter) |
+|---|---|
+| ![Tela de montar o time no modo gráfico](docs/screenshots/01-home.png) | ![Batalha no modo gráfico](docs/screenshots/02-detalhe.png) |
+
+| Versão web | Versão web no celular |
+|---|---|
+| ![Batalha na versão web](docs/screenshots/04-web.png) | ![Versão web numa tela de celular](docs/screenshots/03-mobile.png) |
 
 ## Como rodar
 
@@ -78,3 +90,11 @@ A lógica de batalha não desenha nada nem lê o teclado. Por isso as duas inter
 Orientação a objetos com `Pokemon`, `Move` e `Battle`, e uma regra de negócio com bastante matemática: a fórmula de dano multiplica uns seis fatores, e o cálculo de stats soma IV, EV e natureza por cima. Separar lógica de interface foi o que deixou o projeto crescer sem virar bagunça: a versão web nasceu reaproveitando a mesma `Battle` do modo gráfico.
 
 No modo gráfico, treinei consumir uma API HTTP com cache em disco, buscar dados em paralelo com `ThreadPoolExecutor` e rodar chamadas de rede numa thread separada sem travar a janela, trazendo o resultado de volta pra thread do Tkinter. Também modelei a máquina de estados dos status e escrevi as primeiras heurísticas de decisão da IA, comparando golpes pelo dano esperado em vez do poder bruto.
+
+## Créditos e avisos
+
+Dados, golpes e ilustrações vêm da [PokéAPI](https://pokeapi.co/). Pokémon é marca da Nintendo, da Game Freak e da Creatures Inc. Este é um projeto de fã e de estudo, sem fins lucrativos e sem ligação com essas empresas.
+
+## Licença e contato
+
+Código sob a licença MIT (veja [LICENSE](LICENSE)). Feito por Guilherme Araujo de Castro: [portfólio](https://guilhermearaujodecastro.vercel.app) · [LinkedIn](https://www.linkedin.com/in/guilherme-araujo-de-castro) · guilhermeacastro.2006@gmail.com
