@@ -15,6 +15,7 @@ import re
 from typing import Any
 
 from . import roster
+from .team_validation import validate_spec, validate_team
 
 _STAT_ABBR = {"HP": "hp", "Atk": "attack", "Def": "defense", "SpA": "sp_atk", "SpD": "sp_def", "Spe": "speed"}
 _STAT_ABBR_ORDER = ["HP", "Atk", "Def", "SpA", "SpD", "Spe"]
@@ -81,8 +82,9 @@ def _parse_stat_line(text: str) -> dict[str, int]:
             continue
         value_str, _, abbr = part.partition(" ")
         stat = _STAT_ABBR.get(abbr.strip())
-        if stat and value_str.strip().lstrip("-").isdigit():
-            result[stat] = int(value_str.strip())
+        if not stat or not value_str.strip().lstrip("-").isdigit() or stat in result:
+            raise ValueError(f"Atributo inválido ou repetido: {part}")
+        result[stat] = int(value_str.strip())
     return result
 
 
@@ -114,13 +116,21 @@ def _parse_mon(block: str) -> dict[str, Any]:
         "moves": [],
     }
 
+    fields_seen = set()
     for line in lines[1:]:
+        key = line.split(":",1)[0].lower()
+        if key in {"level","nature","ivs","evs"}:
+            if key in fields_seen:
+                raise ValueError(f"{key}: campo repetido.")
+            fields_seen.add(key)
         if line.startswith("-"):
             spec["moves"].append(line[1:].strip())
         elif line.lower().startswith("level:"):
             value = line.split(":", 1)[1].strip()
             if value.isdigit():
                 spec["level"] = int(value)
+            else:
+                raise ValueError("level: informe inteiro de 1 a 100.")
         elif line.lower().startswith("nature:"):
             spec["nature"] = line.split(":", 1)[1].strip()
         elif line.lower().startswith("ivs:"):
@@ -134,13 +144,16 @@ def _parse_mon(block: str) -> dict[str, Any]:
 
 
 def text_to_specs(text: str) -> list[dict[str, Any]]:
+    if not isinstance(text,str) or len(text) > 65536:
+        raise ValueError("team: texto deve ter até 64 KiB.")
     blocks = [block.strip() for block in re.split(r"\n\s*\n", text.strip()) if block.strip()]
-    return [_parse_mon(block) for block in blocks]
+    return validate_team([_parse_mon(block) for block in blocks])
 
 
 def build_from_spec(spec: dict[str, Any], rng=random):
     """Materializa uma ficha em um Pokemon de verdade — a única parte deste
     módulo que precisa da PokeAPI (via `roster`)."""
+    validate_spec(spec)
     pokemon = roster.build_pokemon(
         spec["species"], level=spec.get("level", roster.LEVEL), rng=rng,
         ivs=spec.get("ivs"), nature=spec.get("nature"),
@@ -150,7 +163,7 @@ def build_from_spec(spec: dict[str, Any], rng=random):
     if spec.get("evs"):
         for stat, value in spec["evs"].items():
             if stat in pokemon.evs:
-                pokemon.evs[stat] = max(0, min(252, value))
+                pokemon.evs[stat] = value
         pokemon._recalculate_stats(full_heal=True)
     if spec.get("held_item"):
         pokemon.held_item = spec["held_item"]
