@@ -7,12 +7,20 @@ entre a tela de batalha e a tela de Pokédex/ginásios.
 
 import copy
 import json
+import os
+import shutil
+import tempfile
+import threading
 from pathlib import Path
 from typing import Any
 
 SAVE_PATH = Path(__file__).resolve().parent.parent / "savegame.json"
+_LOCK = threading.RLock()
 
 _DEFAULT_SAVE = {
+    "schema_version": 2,
+    "slots": {},
+    "active_slot": "1",
     "pokedex_seen": [],  # nomes de espécie (formato da PokeAPI) já vistos em batalha
     "badges": [],  # ids dos ginásios já vencidos, na ordem em que foram vencidos
     "money": 0,  # dinheiro do jogo (recompensa de ginásio), nada a ver com dinheiro de verdade
@@ -48,7 +56,38 @@ def load() -> dict[str, Any]:
 
 
 def write(data: dict[str, Any]) -> None:
-    SAVE_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    encoded = json.dumps(data, indent=2, ensure_ascii=False, allow_nan=False)
+    with _LOCK:
+        SAVE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        if SAVE_PATH.exists() and "schema_version" not in json.loads(SAVE_PATH.read_text("utf8")):
+            backup = SAVE_PATH.with_suffix(SAVE_PATH.suffix + ".legacy.bak")
+            if not backup.exists():
+                shutil.copy2(SAVE_PATH, backup)
+        fd, temporary = tempfile.mkstemp(prefix=SAVE_PATH.name + ".", dir=SAVE_PATH.parent)
+        try:
+            with os.fdopen(fd,"w",encoding="utf8") as stream:
+                stream.write(encoded)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary,SAVE_PATH)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+
+
+def transfer_equipment(previous, incoming):
+    """Uma única escrita para devolver o anterior e retirar o novo."""
+    with _LOCK:
+        data = load()
+        if previous == incoming:
+            return
+        if incoming and data["items"].get(incoming,0) < 1:
+            raise ValueError("Item não disponível no inventário.")
+        if previous:
+            data["items"][previous] = data["items"].get(previous,0) + 1
+        if incoming:
+            data["items"][incoming] -= 1
+        write(data)
 
 
 def mark_seen(species_names) -> dict[str, Any]:
