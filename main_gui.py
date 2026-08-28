@@ -12,6 +12,7 @@ Como jogar:
 """
 
 import random
+import copy
 import threading
 import time
 import tkinter as tk
@@ -29,6 +30,7 @@ from pokebattle import (
 from pokebattle.battle import WEATHER_LABELS, Battle
 from pokebattle.pokeapi import PokeApiError
 from pokebattle.status import SHORT_LABEL
+from pokebattle import campaign
 from pokebattle.tournament import Tournament, simulate_ai_battle
 
 WEATHER_EMOJI = {"sun": "☀️", "rain": "🌧️", "sandstorm": "🏜️", "hail": "❄️"}
@@ -266,6 +268,7 @@ class PokeBattleApp(tk.Tk):
         self.configure(bg=BG)
 
         self.player_team = []
+        self.selection = campaign.SelectionSession()
         self.enemy_team = []
         self.battle = None
         self.tournament = None  # Tournament em andamento (pokebattle/tournament.py), ou None
@@ -276,12 +279,35 @@ class PokeBattleApp(tk.Tk):
         self.container.pack(fill="both", expand=True)
 
         self._show_initial_frame()
+        self.protocol("WM_DELETE_WINDOW", self._close_campaign)
+
+    def _close_campaign(self):
+        try:
+            data = save.load()
+            if len(self.selection.custom_builds) != len(self.selection.chosen):
+                self.selection.cancel()
+            if self.player_team and data.get("active_slot") in data.get("slots", {}):
+                campaign.save_slot(data["active_slot"], self.player_team)
+                self.selection.commit()
+            else:
+                self.selection.cancel()
+        except (OSError, ValueError) as exc:
+            messagebox.showerror("Não foi possível salvar", str(exc), parent=self)
+            return
+        self.destroy()
 
     def _show_initial_frame(self):
         """Primeira tela do app: nome do treinador e Pokémon inicial só são
         perguntados uma vez (ficam salvos no save.py); depois disso, vai
         direto pra seleção de time."""
         data = save.load()
+        active = data.get("active_slot", "1")
+        if active in data.get("slots", {}):
+            try:
+                self.player_team = campaign.load_slot(active)
+                self.selection.use_team(self.player_team)
+            except (ValueError, KeyError, TypeError) as exc:
+                messagebox.showerror("Slot inválido", str(exc), parent=self)
         if not data.get("trainer_name"):
             self.show_frame(TrainerNameScreen)
         elif not data.get("starter"):
@@ -386,10 +412,16 @@ class TeamSelectScreen(tk.Frame):
         self.app = app
         self.all_species = None
         self.visible_species = []
-        self.chosen = []
-        self.nicknames = {}  # índice em self.chosen -> apelido escolhido pelo jogador
-        self.held_item_choices = {}  # índice em self.chosen -> id do item segurado equipado
-        self.custom_builds = {}  # índice em self.chosen -> Pokemon já pronto (time importado/trocado)
+        self.chosen = self.app.selection.chosen
+        self.nicknames = self.app.selection.nicknames
+        self.held_item_choices = self.app.selection.held_item_choices
+        self.custom_builds = self.app.selection.custom_builds
+        for index, mon in self.custom_builds.items():
+            if getattr(mon, "held_item", None):
+                self.held_item_choices[index] = mon.held_item
+            else:
+                self.held_item_choices.pop(index, None)
+                self.app.selection.borrowed.pop(index, None)
 
         save_data = save.load()
         trainer_name = save_data.get("trainer_name")
@@ -528,12 +560,24 @@ class TeamSelectScreen(tk.Frame):
         ).pack(side="left", padx=4)
         tk.Button(extra_row, text="Exportar time", font=FONT_BODY, command=self._export_team).pack(side="left", padx=4)
         tk.Button(extra_row, text="Importar time", font=FONT_BODY, command=self._import_team).pack(side="left", padx=4)
+        slots_row = tk.Frame(self, bg=BG)
+        slots_row.pack(pady=4)
+        tk.Label(slots_row, text="Campanha:", bg=BG, fg=FG, font=FONT_BODY).pack(side="left")
+        self.slot_var = tk.StringVar(value=save_data.get("active_slot", "1"))
+        tk.OptionMenu(slots_row, self.slot_var, "1", "2", "3").pack(side="left")
+        tk.Button(slots_row, text="Salvar equipe no slot", command=self._save_slot, font=FONT_BODY).pack(side="left", padx=4)
+        tk.Button(slots_row, text="Carregar slot", command=self._load_slot, font=FONT_BODY).pack(side="left", padx=4)
+        tk.Button(slots_row, text="Cancelar seleção", command=self._cancel_selection, font=FONT_BODY).pack(side="left", padx=4)
         tk.Button(
             extra_row, text="Trocar Pokémon", font=FONT_BODY, command=self._trade_menu,
         ).pack(side="left", padx=4)
 
         starter = save_data.get("starter")
-        if starter:
+        if self.chosen:
+            for index, species in enumerate(self.chosen):
+                self.team_list.insert(tk.END, self.nicknames.get(index) or roster.display_name(species))
+            self.start_button.config(state="normal")
+        elif starter:
             self._add_species(starter)
 
         self.app.run_in_background(roster.list_all_species, self._species_loaded, self._species_load_failed)
@@ -624,19 +668,17 @@ class TeamSelectScreen(tk.Frame):
             ).pack(padx=16, pady=4)
         for item in available:
             def pick(item_id=item.id):
-                previous = self.held_item_choices.get(index)
-                if previous:
-                    save.add_item(previous)  # devolve o item anterior desse slot
-                save.remove_item(item_id)
-                self.held_item_choices[index] = item_id
+                try:
+                    self.app.selection.equip(index, item_id)
+                except (OSError, ValueError) as exc:
+                    messagebox.showerror("Item não equipado", str(exc), parent=dialog)
+                    return
                 dialog.destroy()
             qty = owned_items.get(item.id, 0)
             tk.Button(dialog, text=f"{item.name} (tem {qty})", font=FONT_BODY, width=28, command=pick).pack(padx=16, pady=2)
 
         def unequip():
-            previous = self.held_item_choices.pop(index, None)
-            if previous:
-                save.add_item(previous)
+            self.app.selection.equip(index, None)
             dialog.destroy()
         tk.Button(dialog, text="Nenhum (remover item atual)", font=FONT_BODY, command=unequip).pack(padx=16, pady=(8, 2))
         tk.Button(dialog, text="Cancelar", font=FONT_BODY, command=dialog.destroy).pack(pady=(4, 16))
@@ -648,12 +690,73 @@ class TeamSelectScreen(tk.Frame):
         self.status_label.config(text="Preparando o time pra exportar...")
 
         def build_for_export():
-            team = self.app.player_team if self.app.player_team else None
-            if team:
-                return team
-            return [roster.build_pokemon(species) for species in self.chosen]
+            return self._selection_team()
 
         self.app.run_in_background(build_for_export, self._show_export_text, self._team_build_failed)
+
+    def _selection_team(self):
+        chosen=list(self.chosen); builds=copy.deepcopy(self.custom_builds)
+        nicknames=dict(self.nicknames); equipment=dict(self.held_item_choices)
+        team = [builds.get(i) or roster.build_pokemon(species) for i,species in enumerate(chosen)]
+        for i,mon in enumerate(team):
+            if i in nicknames: mon.name=nicknames[i]
+            mon.held_item=equipment.get(i)
+        return team
+
+    def _save_slot(self):
+        if getattr(self,"_slot_saving",False):return
+        slot=self.slot_var.get()
+        if not self.chosen:
+            return
+        if slot in save.load().get("slots",{}) and not messagebox.askyesno("Substituir campanha?", "Salvar substitui a campanha deste slot. Continuar?", parent=self):
+            return
+        self._slot_saving=True
+        progress=tk.Toplevel(self);progress.title("Salvando campanha");progress.transient(self.winfo_toplevel());progress.grab_set()
+        tk.Label(progress,text="Montando a equipe antes de gravar. Aguarde...",font=FONT_BODY).pack(padx=20,pady=12)
+        cancelled=False
+        def cancel():
+            nonlocal cancelled
+            cancelled=True;self._slot_saving=False;progress.destroy()
+            self.status_label.config(text="Gravação cancelada. Os slots anteriores foram mantidos.")
+        tk.Button(progress,text="Cancelar gravação",command=cancel,font=FONT_BODY).pack(pady=(0,12))
+        progress.protocol("WM_DELETE_WINDOW",cancel)
+        progress.bind("<Escape>",lambda event:cancel())
+        def finish():
+            self._slot_saving=False
+            if progress.winfo_exists():progress.destroy()
+        def completed(team):
+            if cancelled or not self.winfo_exists():return
+            try:
+                campaign.save_slot(slot,team)
+                self.app.selection.commit()
+                self.app.player_team=team
+                self.custom_builds.update(enumerate(team))
+                self.status_label.config(text=f"Equipe completa salva no slot {slot}.")
+            except (OSError,ValueError) as exc:
+                self._team_build_failed(exc)
+            finally:finish()
+        def failed(exc):
+            if cancelled or not self.winfo_exists():return
+            finish();self._team_build_failed(exc)
+        self.app.run_in_background(self._selection_team,completed,failed)
+
+    def _load_slot(self):
+        if not messagebox.askyesno("Carregar campanha?", "Descartar alterações não salvas na equipe e no progresso e carregar este slot?", parent=self):
+            return
+        try:
+            self.app.selection.cancel()
+            team=campaign.load_slot(self.slot_var.get())
+            self.app.player_team=team
+            self.app.selection.use_team(team)
+            self.app.show_frame(TeamSelectScreen)
+        except (OSError,ValueError,KeyError,TypeError) as exc:
+            messagebox.showerror("Slot não carregado",str(exc),parent=self)
+
+    def _cancel_selection(self):
+        self.app.selection.discard()
+        self.app.selection=campaign.SelectionSession()
+        self.app.player_team=[]
+        self.app.show_frame(TeamSelectScreen)
 
     def _show_export_text(self, team):
         self.status_label.config(text=f"{len(self.all_species or [])} Pokémon disponíveis. Digite pra filtrar.")
@@ -832,6 +935,7 @@ class TeamSelectScreen(tk.Frame):
             if held_item_id:
                 mon.held_item = held_item_id
         self.app.player_team = player_team
+        self.custom_builds.update(enumerate(player_team))
         self.app.enemy_team = enemy_team
         self.app.battle = Battle(player_team, enemy_team, location=locations.random_location())
         save.mark_seen([mon.species for mon in player_team + enemy_team if hasattr(mon, "species")])
