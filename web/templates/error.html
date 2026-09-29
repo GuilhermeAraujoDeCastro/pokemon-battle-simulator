@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="error-banner" role="alert">{{ message }}</p>
+<a class="clear-link" href="{{ url_for('choose') }}">Voltar à seleção</a>
+{% endblock %}

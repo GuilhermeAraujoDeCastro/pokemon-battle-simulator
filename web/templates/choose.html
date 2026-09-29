@@ -1,5 +1,26 @@
 {% extends "base.html" %}
 {% block content %}
+{% if error %}<p class="error-banner" role="alert">{{ error }}</p>{% endif %}
+<section class="team-builder" aria-labelledby="team-title">
+    <h2 id="team-title">Monte uma equipe de até 6 Pokémon</h2>
+    <p class="muted">A primeira escolha começa em campo. O adversário recebe a mesma quantidade de Pokémon do catálogo local.</p>
+    <form method="post" action="{{ url_for('start_battle') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="team-select-grid">
+        {% for slot in range(6) %}
+            <label for="team-{{ slot }}">Pokémon {{ slot + 1 }}{% if slot == 0 %} (obrigatório){% endif %}
+                <select id="team-{{ slot }}" name="team" {% if slot == 0 %}required{% endif %}>
+                    <option value="">{{ 'Escolha o primeiro' if slot == 0 else 'Sem reserva neste slot' }}</option>
+                    {% for s in all_species %}<option value="{{ s }}">{{ display_name(s) }}</option>{% endfor %}
+                </select>
+            </label>
+        {% endfor %}
+        </div>
+        <button type="submit" class="primary">Começar batalha com equipe</button>
+    </form>
+    <p><a class="clear-link" href="{{ url_for('demo_battle') }}">Experimentar cenário de reservas</a></p>
+</section>
+<h2>Batalha rápida de um contra um</h2>
 <form method="get" class="filter-form">
     <label>Filtrar por letra:
         <input type="text" name="letter" maxlength="1" value="{{ letter }}" autofocus>
@@ -12,6 +33,7 @@
 
 {% if species %}
 <form method="post" action="{{ url_for('start_battle') }}" class="species-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     {% for s in species %}
     <button type="submit" name="species" value="{{ s }}" class="species-button">{{ display_name(s) }}</button>
     {% endfor %}

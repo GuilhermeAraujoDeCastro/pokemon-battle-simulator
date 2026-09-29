@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+    <h2>Cenário offline de equipes e reservas</h2>
+    <p>Seu time: Bulbasaur, Squirtle e Pikachu. Adversário: Charmander, Machop e Eevee. Todos vêm do catálogo local, sem PokéAPI.</p>
+    <p>Para demonstrar a substituição após desmaio, Bulbasaur começa com 1 HP. Escolha um golpe e depois uma reserva. A troca obrigatória não concede um ataque extra ao adversário.</p>
+    <p>Este cenário é fictício, determinístico e fica somente na memória desta sessão.</p>
+    <form method="post" action="{{ url_for('demo_battle') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="primary">Iniciar cenário offline</button>
+    </form>
+    <p><a class="clear-link" href="{{ url_for('choose') }}">Voltar à seleção</a></p>
+</section>
+{% endblock %}

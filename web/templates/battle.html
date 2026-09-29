@@ -1,43 +1,76 @@
 {% extends "base.html" %}
 {% block content %}
+{% if demo %}<p class="demo-banner">Cenário fictício offline: o primeiro Pokémon do jogador começou com 1 HP.</p>{% endif %}
+{% if error %}<p class="error-banner" role="alert">{{ error }}</p>{% endif %}
 <div class="battle-panels">
     <div class="panel">
         <h2>{{ enemy.name }} <span class="level">Lv.{{ enemy.level }}</span></h2>
-        <div class="hp-track"><div class="hp-fill {{ enemy_hp.state }}" style="width: {{ enemy_hp.percent }}%"></div></div>
+        <div class="hp-track" role="progressbar" aria-label="HP do adversário" aria-valuenow="{{ enemy.current_hp }}" aria-valuemin="0" aria-valuemax="{{ enemy.max_hp }}"><div class="hp-fill {{ enemy_hp.state }}" style="width: {{ enemy_hp.percent }}%"></div></div>
         <p class="muted">{{ enemy.current_hp }}/{{ enemy.max_hp }} HP</p>
     </div>
     <div class="panel">
         <h2>{{ player.name }} <span class="level">Lv.{{ player.level }}</span></h2>
-        <div class="hp-track"><div class="hp-fill {{ player_hp.state }}" style="width: {{ player_hp.percent }}%"></div></div>
+        <div class="hp-track" role="progressbar" aria-label="HP do jogador" aria-valuenow="{{ player.current_hp }}" aria-valuemin="0" aria-valuemax="{{ player.max_hp }}"><div class="hp-fill {{ player_hp.state }}" style="width: {{ player_hp.percent }}%"></div></div>
         <p class="muted">{{ player.current_hp }}/{{ player.max_hp }} HP</p>
     </div>
 </div>
-
-<div class="log">
-    {% for line in log[-14:] %}
-    <p>{{ line }}</p>
+<section aria-labelledby="enemy-team-title">
+    <h2 id="enemy-team-title">Equipe adversária</h2>
+    <ul class="team-summary">
+    {% for pokemon in battle.enemy_team %}
+        <li class="{{ 'fainted' if pokemon.is_fainted else '' }}">{{ pokemon.name }}: {{ pokemon.current_hp }}/{{ pokemon.max_hp }} HP{% if loop.index0 == battle.enemy_active %} · ativo{% endif %}{% if pokemon.is_fainted %} · desmaiado{% endif %}</li>
     {% endfor %}
-</div>
+    </ul>
+</section>
+<section class="log" aria-label="Histórico da batalha" aria-live="polite">
+    {% for line in log[-14:] %}<p>{{ line }}</p>{% endfor %}
+</section>
 
 {% if battle.is_over %}
-<div class="end-banner {{ 'victory' if battle.winner == 'player' else 'defeat' }}">
-    {% if battle.winner == "player" %}
-        Você venceu com {{ player.name }}!
-    {% else %}
-        Você perdeu... {{ enemy.name }} venceu.
-    {% endif %}
+<div class="end-banner {{ 'victory' if battle.winner == 'player' else 'defeat' }}" role="status">
+    {% if battle.winner == "player" %}Você venceu a equipe adversária!{% else %}Sua equipe foi derrotada.{% endif %}
 </div>
 <form method="post" action="{{ url_for('battle_reset') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <button type="submit" class="primary">Jogar de novo</button>
 </form>
 {% else %}
-<form method="post" action="{{ url_for('battle_move') }}" class="move-grid">
-    {% for move in player.moves %}
-    <button type="submit" name="move_index" value="{{ loop.index0 }}" class="move-button">
-        {{ move.name }}
-        <span class="muted">({{ move.type }}, poder {{ move.power }}, precisão {{ move.accuracy }}%)</span>
-    </button>
-    {% endfor %}
-</form>
+    {% if needs_switch %}
+    <p class="error-banner" role="alert">Seu Pokémon desmaiou. Escolha uma reserva para continuar.</p>
+    {% else %}
+    <h2>Escolha um golpe</h2>
+    <form method="post" action="{{ url_for('battle_move') }}" class="move-grid">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="revision" value="{{ revision }}">
+        {% for move in player.moves %}
+        <button type="submit" name="move_index" value="{{ loop.index0 }}" class="move-button">
+            {{ move.name }}
+            <span class="muted">({{ move.type }}, poder {{ move.power }}, precisão {{ move.accuracy }}%)</span>
+        </button>
+        {% endfor %}
+    </form>
+    {% endif %}
 {% endif %}
+<section aria-labelledby="player-team-title">
+    <h2 id="player-team-title">Seu time e reservas</h2>
+    <p class="muted">A troca voluntária consome seu turno e o adversário ataca. Após um desmaio, escolher a reserva não concede um ataque extra.</p>
+    <div class="reserve-grid">
+    {% for pokemon in battle.player_team %}
+        <div class="reserve-card {{ 'fainted' if pokemon.is_fainted else '' }}">
+            <h3>{{ pokemon.name }}</h3>
+            <p>{{ pokemon.current_hp }}/{{ pokemon.max_hp }} HP{% if pokemon.status %} · {{ pokemon.status }}{% endif %}</p>
+            {% if loop.index0 == battle.player_active %}<p>Ativo{% if pokemon.is_fainted %}, desmaiado{% endif %}</p>
+            {% elif pokemon.is_fainted %}<p>Desmaiado</p>
+            {% elif not battle.is_over %}
+            <form method="post" action="{{ url_for('battle_switch') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="revision" value="{{ revision }}">
+                <button type="submit" name="team_index" value="{{ loop.index0 }}">{{ 'Enviar' if needs_switch else 'Trocar para' }} {{ pokemon.name }}</button>
+            </form>
+            {% endif %}
+        </div>
+    {% endfor %}
+    </div>
+</section>
+<p><a class="clear-link" href="{{ url_for('choose') }}">Escolher outra equipe</a></p>
 {% endblock %}

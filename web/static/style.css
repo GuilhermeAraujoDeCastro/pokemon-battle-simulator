@@ -213,3 +213,18 @@ body {
     font-size: 0.8em;
     margin-top: 40px;
 }
+/* Equipes e reservas reutilizam a paleta da interface existente. */
+.team-builder { margin-bottom:2rem; }
+.team-select-grid,.reserve-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin:16px 0; }
+.team-select-grid label { display:flex; flex-direction:column; gap:6px; }
+.team-select-grid select { width:100%; padding:10px; color:var(--fg); background:var(--panel-bg); border:1px solid #4b5670; border-radius:6px; }
+.reserve-card { padding:12px; border:1px solid #4b5670; border-radius:8px; background:var(--panel-bg); }
+.reserve-card h3 { margin-top:0; }
+.reserve-card button { padding:10px; border:1px solid var(--accent); border-radius:6px; color:var(--fg); background:var(--panel-bg); cursor:pointer; }
+.fainted { opacity:.65; }
+.team-summary { display:flex; flex-wrap:wrap; gap:10px; padding:0; list-style:none; }
+.team-summary li { border:1px solid #4b5670; padding:8px; border-radius:6px; }
+.error-banner,.demo-banner { padding:12px; border:1px solid var(--accent); border-radius:8px; }
+.error-banner { border-color:var(--hp-red); }
+button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+@media(max-width:520px) { .battle-panels { flex-direction:column; gap:12px; } .filter-form { flex-wrap:wrap; } .page { padding:20px 12px 40px; } }
