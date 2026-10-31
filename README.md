@@ -10,6 +10,8 @@ Jogo de batalha Pokémon por turnos em Python. O centro do projeto é reproduzir
 
 ## Telas
 
+O desktop também tem [slots de campanha, migração do save e validação da importação](docs/campaign.md). Esses detalhes incluem os cuidados para testar com uma cópia do progresso.
+
 | Montagem do time (Tkinter) | Batalha (Tkinter) |
 |---|---|
 | ![Tela de montar o time no modo gráfico](docs/screenshots/01-home.png) | ![Batalha no modo gráfico](docs/screenshots/02-detalhe.png) |
@@ -37,7 +39,7 @@ O modo gráfico busca qualquer Pokémon na PokéAPI, com stats, tipos, golpes, h
 O que dá pra fazer:
 
 - montar times de até 6 Pokémon, com busca que filtra enquanto você digita;
-- jogar com IV, EV e natureza sorteados, como nos jogos, e dar apelido a cada Pokémon;
+- jogar com IVs e natureza sorteados, treinar EVs e dar apelido a cada Pokémon;
 - usar golpes com efeito de verdade: queimadura, veneno, paralisia, sono, congelamento, confusão, prioridade, recuo, dreno de HP, mudança de atributo, clima e ataques de dois turnos;
 - contar com um conjunto de habilidades com efeito real, como Intimidate, Levitate, Sturdy, Wonder Guard e Speed Boost;
 - ganhar XP, subir de nível, aprender golpes e evoluir pela cadeia real da PokéAPI;
@@ -53,7 +55,23 @@ Os sons são sintetizados pelo próprio programa com a biblioteca padrão, entã
 
 ## Versão web
 
-Um servidor Flask com o roster fixo de 41 Pokémon (`pokebattle/data.py`), que funciona sem internet. Você filtra pela letra, escolhe o seu Pokémon e o computador sorteia o adversário. Cada partida fica na memória do servidor, ligada à sessão do navegador, e o servidor guarda no máximo 500 partidas ao mesmo tempo. O modo debug do Flask só liga com `FLASK_DEBUG=1`.
+A demo Flask usa o catálogo fixo de 41 Pokémon em `pokebattle/data.py` e funciona sem PokéAPI. Você pode montar uma equipe de 1 a 6 Pokémon, na ordem dos slots, ou usar os botões da batalha rápida original de um contra um. O adversário recebe a mesma quantidade de Pokémon.
+
+As reservas mostram HP e condição. Trocar voluntariamente usa `Battle.take_turn(("switch", índice), golpe_adversário)`: o adversário ainda ataca naquele turno. Se o ativo desmaiar, os golpes ficam indisponíveis até você escolher uma reserva viva. Essa substituição usa `Battle.switch` e não concede um ataque adicional. O adversário envia a primeira reserva viva depois de um desmaio. A batalha só termina quando uma equipe inteira fica sem Pokémon capazes de continuar.
+
+Para experimentar o fluxo sem depender de sorte ou internet, abra `http://127.0.0.1:5000/demo` depois de iniciar `python web/app.py`. O cenário tem três Pokémon por lado e deixa Bulbasaur com 1 HP de propósito. Inicie o cenário, use Tackle, envie Squirtle depois do desmaio e experimente uma troca voluntária. O dano e as trocas passam pela classe `Battle` real; o cenário é fictício e identificado na tela.
+
+Cada partida fica na memória do processo, vinculada a um cookie de sessão próprio desta demo. Reiniciar o servidor perde as partidas; o limite em memória é de 500 partidas. Esta interface não implementa campanha, inventário ou slots de save do desktop e não foi preparada para múltiplos processos de servidor. O host padrão é `127.0.0.1`, a porta é 5000 e a variável `PORT` permite escolher outra. O debug só liga com `FLASK_DEBUG=1`.
+
+Os formulários incluem token CSRF; golpes e trocas validam índices, estado da partida e a revisão apresentada na tela. Reenviar uma ação de uma revisão antiga retorna conflito, sem executar outro turno. Templates escapam nomes e histórico. Isso cobre os cenários testados da demo e não equivale a uma auditoria completa de implantação pública.
+
+Testes web, separados das regressões do domínio:
+
+```bash
+python -m unittest discover -s tests -p test_web_teams.py -v
+```
+
+Os 12 testes executados com o cliente de teste Flask cobrem seleção de até seis, modo original, reservas, desmaio e substituição obrigatória, troca adversária, vitória por equipe, entradas inválidas, CSRF, reenvio de ação, sessões separadas e escape de HTML. Eles usam rotas e templates reais, com catálogo local. A validação visual interativa no navegador é uma etapa separada.
 
 ## A fórmula de dano
 
